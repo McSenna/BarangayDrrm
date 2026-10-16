@@ -1,0 +1,13 @@
+# Local secrets and environment files — never commit or zip
+backend/config/app_config.local.php
+frontend/.env.local
+frontend/.env.*.local
+node_modules/
+dist/
+
+# Uploaded photos are runtime data — never commit or zip them
+backend/uploads/*
+!backend/uploads/.htaccess
+!backend/uploads/.gitkeep
+
+rm.md

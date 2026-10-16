@@ -1,0 +1,13 @@
+# Phase 19 — single-page app routing for Apache / Hostinger.
+# Copied into dist/ by `npm run build`. Serves index.html for app routes such
+# as /admin/relief-requests so a page refresh does not return 404. Real files
+# and folders (assets, the backend/ API folder) are served normally.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_URI} !^/backend/
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>

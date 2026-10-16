@@ -1,0 +1,87 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Work queue + live rail</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}
+body{width:1440px;height:900px;overflow:hidden;font-family:"Plus Jakarta Sans",sans-serif;background:#F1F5F9;color:#1A2433;display:flex;font-size:13px}
+.side{width:252px;background:#16324F;color:#D3DEEA;flex:none;display:flex;flex-direction:column}
+.tape{height:6px;background:repeating-linear-gradient(135deg,#F59E0B 0 12px,#16324F 12px 24px)}
+.brand{padding:18px 20px;font-weight:800;color:#fff;font-size:15px}
+.lab{padding:14px 20px 6px;font-size:11px;letter-spacing:.08em;color:#93A9C1;font-weight:700}
+.nav{margin:2px 12px;padding:11px 12px;border-radius:10px;font-weight:600;display:flex;justify-content:space-between}
+.nav.on{background:#fff;color:#16324F;font-weight:800}
+.b{background:#F59E0B;color:#16324F;border-radius:999px;padding:0 8px;font-size:11px;font-weight:800}
+.b.r{background:#DC2626;color:#fff}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{height:64px;background:#16324F;display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:0 28px;color:#fff}
+.chip{background:#F59E0B;color:#16324F;padding:6px 12px;border-radius:999px;font-weight:800}
+.page{padding:20px 28px;display:flex;flex-direction:column;gap:14px}
+.ph{display:flex;justify-content:space-between;align-items:flex-end}
+h1{font-size:24px;font-weight:800;color:#16324F}
+.sub{color:#475569;margin-top:2px}
+.btn{padding:9px 14px;border-radius:10px;font-weight:700;border:1px solid #16324F;color:#16324F;background:#fff}
+.btn.p{background:#16324F;color:#fff}.btn.d{background:#DC2626;border-color:#DC2626;color:#fff}
+.acts{display:flex;gap:8px}
+.filters{display:flex;gap:8px;align-items:center;background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:8px 10px}
+.sel{border:1px solid #64748B;border-radius:10px;padding:7px 12px;font-weight:600;min-width:140px}
+.seg{display:flex;border:1px solid #E2E8F0;border-radius:10px;overflow:hidden}
+.seg span{padding:7px 12px;font-weight:600;color:#475569}.seg .on{background:#16324F;color:#fff}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.card{background:#fff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden}
+.k{padding:14px 16px;border-top:4px solid #F59E0B}.k.g{border-top-color:#16A34A}.k.r{border-top-color:#DC2626}
+.kl{color:#475569;font-weight:600}.kv{font-size:30px;font-weight:800;color:#16324F;margin-top:4px}
+.ks{color:#64748B;font-size:12px}
+.grid{display:grid;grid-template-columns:1fr 340px;gap:14px;flex:1}
+.col{display:flex;flex-direction:column;gap:14px}
+.charts{display:grid;grid-template-columns:1.4fr 1fr;gap:14px}
+.ch{padding:14px 16px;height:178px}.ct{font-weight:800;color:#16324F;margin-bottom:10px}
+.bars{display:flex;align-items:flex-end;gap:5px;height:110px;border-bottom:1px solid #E2E8F0;position:relative}
+.bars i{flex:1;background:#16324F;border-radius:3px 3px 0 0}
+.bars i.a{background:#DC2626}
+.onset{position:absolute;left:62%;top:0;bottom:0;border-left:2px dashed #DC2626}
+.pipe div{display:flex;align-items:center;gap:8px;margin:7px 0}
+.pipe span{width:78px;color:#475569;font-weight:600;font-size:12px}
+.pipe b{height:14px;border-radius:4px;background:#16324F}
+.tabs{display:flex;gap:4px;padding:10px 12px 0;border-bottom:1px solid #E2E8F0}
+.tabs span{padding:9px 12px;font-weight:700;color:#475569}.tabs .on{color:#16324F;border-bottom:3px solid #16324F}
+.tf{display:flex;gap:8px;padding:10px 14px}
+table{width:100%;border-collapse:collapse}
+th{background:#F1F5F9;text-align:left;padding:9px 14px;color:#475569;font-size:12px}
+td{padding:10px 14px;border-top:1px solid #E2E8F0}
+.pill{padding:2px 9px;border-radius:999px;font-weight:700;font-size:12px}
+.crit{background:#DC2626;color:#fff}.hi{background:#FEF2F2;color:#B91C1C;border:1px solid #FECACA}.pen{background:#FEF3C7;color:#B45309}
+.new{display:inline-block;width:8px;height:8px;border-radius:50%;background:#F59E0B;margin-right:6px}
+.rail .card{padding:14px 16px}
+.hz{border-top:6px solid #DC2626}.rt{font-weight:800;color:#16324F;margin-bottom:8px}
+.bar{height:10px;background:#E2E8F0;border-radius:999px;overflow:hidden;margin:8px 0}.bar b{display:block;height:100%;width:38%;background:#16A34A}
+.li{display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #E2E8F0}
+</style></head><body>
+<aside class="side"><div class="tape"></div><div class="brand">Barangay Binitayan DRRM</div>
+<div class="lab">OVERVIEW</div><div class="nav on">Dashboard</div>
+<div class="lab">OPERATIONS</div><div class="nav">Disaster Reports <span class="b">4</span></div><div class="nav">Household Priorities <span class="b">2</span></div><div class="nav">Hazards &amp; Map <span class="b r">1</span></div><div class="nav">Relief Allocation <span class="b">6</span></div>
+<div class="lab">SYSTEM</div><div class="nav">SMS Notifications</div><div class="nav">Administration</div></aside>
+<div class="main"><div class="top"><span class="chip">Warning · Flood</span><span>Administrator ▾</span></div>
+<div class="page">
+<div class="ph"><div><h1>Dashboard</h1><div class="sub">Response phase · Typhoon Kristine · updated automatically</div></div>
+<div class="acts"><span class="btn">Send SMS</span><span class="btn d">Issue hazard alert</span><span class="btn p">Record disaster report</span></div></div>
+<div class="filters"><div class="seg"><span>7 days</span><span class="on">30 days</span><span>90 days</span><span>12 months</span><span>All</span></div><span class="sel">All Puroks ▾</span><span class="sel">Typhoon Kristine ▾</span></div>
+<div class="kpis">
+<div class="card k"><div class="kl">Reports to verify</div><div class="kv">4</div><div class="ks">2 critical severity</div></div>
+<div class="card k r"><div class="kl">Critical / High priority households</div><div class="kv">11</div><div class="ks">3 need manual review</div></div>
+<div class="card k"><div class="kl">Allocations not yet ready</div><div class="kv">6</div><div class="ks">4 awaiting approval · 2 approved</div></div>
+<div class="card k g"><div class="kl">Evacuation slots available</div><div class="kv">186</div><div class="ks">of 300 in 3 open centers</div></div></div>
+<div class="grid"><div class="col">
+<div class="charts"><div class="card ch"><div class="ct">Reports per day</div><div class="bars"><i style="height:10%"></i><i style="height:14%"></i><i style="height:8%"></i><i style="height:20%"></i><i style="height:12%"></i><i style="height:16%"></i><i style="height:22%"></i><i style="height:18%"></i><i style="height:12%"></i><i style="height:60%" class="a"></i><i style="height:92%" class="a"></i><i style="height:74%" class="a"></i><i style="height:50%"></i><i style="height:38%"></i><i style="height:30%"></i><i style="height:24%"></i><div class="onset"></div></div></div>
+<div class="card ch"><div class="ct">Relief pipeline</div><div class="pipe"><div><span>Pending</span><b style="width:40%;background:#F59E0B"></b>4</div><div><span>Approved</span><b style="width:20%"></b>2</div><div><span>Ready</span><b style="width:50%"></b>5</div><div><span>Distributed</span><b style="width:90%;background:#16A34A"></b>18</div></div></div></div>
+<div class="card"><div class="tabs"><span class="on">Reports to verify · 4</span><span>Priority households · 11</span><span>Allocations · 6</span></div>
+<div class="tf"><span class="sel">Search household or ref.</span><span class="sel">Severity: All ▾</span><span class="sel">Status: Pending ▾</span></div>
+<table><tr><th>Ref.</th><th>Household</th><th>Purok</th><th>Severity</th><th>Date</th><th></th></tr>
+<tr><td><span class="new"></span>DR-2026-0142</td><td>Dela Cruz, Ramon</td><td>Purok 2</td><td><span class="pill crit">Critical</span></td><td>Oct 15</td><td><span class="btn">Verify</span></td></tr>
+<tr><td><span class="new"></span>DR-2026-0141</td><td>Santos, Liza</td><td>Purok 1</td><td><span class="pill crit">Critical</span></td><td>Oct 15</td><td><span class="btn">Verify</span></td></tr>
+<tr><td>DR-2026-0139</td><td>Reyes, Mario</td><td>Purok 4</td><td><span class="pill hi">High</span></td><td>Oct 14</td><td><span class="btn">Verify</span></td></tr></table></div></div>
+<div class="col rail">
+<div class="card hz"><div class="rt">Hazard status · Warning</div><div>Flood — Purok 1, Purok 2</div><div class="ks" style="margin-top:4px">Issued Oct 14, 6:40 PM</div></div>
+<div class="card"><div class="rt">Evacuation</div><div class="bar"><b></b></div><div class="li"><span>Binitayan Elem. School</span><b>64/120</b></div><div class="li"><span>Covered Court</span><b>40/100</b></div></div>
+<div class="card"><div class="rt">Stock to watch</div><div class="li"><span>Rice (kg)</span><span class="pill crit">Short 40</span></div><div class="li"><span>Bottled water</span><span class="pill pen">Low</span></div></div>
+<div class="card"><div class="rt">Recent activity</div><div class="li"><span>Allocation approved</span><span class="ks">5m</span></div><div class="li"><span>Report verified</span><span class="ks">12m</span></div></div>
+</div></div></div></div></body></html>

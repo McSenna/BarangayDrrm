@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "plus jakarta sans",
+        "createdAt": "2026-10-16T09:47:07.038Z",
+        "reason": "DESIGN.md pins Plus Jakarta Sans as the project's only UI face (incumbent design system)"
+      }
+    ]
+  }
+}

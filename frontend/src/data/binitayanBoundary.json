@@ -1,0 +1,66 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Barangay Binitayan",
+        "municipality": "Daraga (Locsin)",
+        "province": "Albay",
+        "region": "Region V (Bicol Region)",
+        "country": "Philippines",
+        "psgc_code": "500503010",
+        "source": "PSA PSGC (as of 2023-12-31) boundary shapefiles via altcoder/philippines-psgc-shapefiles, published as GeoJSON by faeldon/philippines-json-maps (2023/geojson/municities/hires/bgysubmuns-municity-500503000.0.1.json)",
+        "source_url": "https://github.com/faeldon/philippines-json-maps",
+        "retrieved": "2026-09-23"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              123.71760088400002,
+              13.153862536000075
+            ],
+            [
+              123.7178443690001,
+              13.156452017000051
+            ],
+            [
+              123.71891165800002,
+              13.157237577000046
+            ],
+            [
+              123.719083274,
+              13.159520685000075
+            ],
+            [
+              123.71822509700007,
+              13.158887416000024
+            ],
+            [
+              123.71487122400003,
+              13.15794462500003
+            ],
+            [
+              123.7129789270001,
+              13.15711261600006
+            ],
+            [
+              123.71272582900008,
+              13.15402731800003
+            ],
+            [
+              123.71462405400007,
+              13.153250881000076
+            ],
+            [
+              123.71760088400002,
+              13.153862536000075
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

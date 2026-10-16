@@ -1,0 +1,1169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================================
+   BASE
+   ========================================================= */
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+  /* The app is one stacking layer, so z-indexes inside it (Leaflet panes go up
+     to 1000) can never rise above dialogs portalled to <body> (login dialog). */
+  #root {
+    isolation: isolate;
+  }
+  /* Colour/spacing tokens live in src/styles/tokens.css (imported first in main.jsx). */
+
+  /* Placeholder text: subtle grey, 4.8:1 on the white inputs, still lighter than entered text. */
+  input::placeholder, textarea::placeholder {
+    color: var(--color-text-subtle);
+    opacity: 1;
+  }
+  body {
+    @apply m-0 bg-bg text-ink font-sans text-[15px] leading-normal antialiased;
+    /* Tabular numerals everywhere, so counts line up in cards, badges and tables. */
+    font-variant-numeric: tabular-nums;
+    caret-color: var(--color-navy);
+  }
+  h1, h2, h3 {
+    @apply font-display text-navy font-bold m-0 mb-2 tracking-[-0.01em];
+    text-wrap: balance;
+  }
+  a {
+    @apply text-navy underline-offset-[3px];
+  }
+
+  /* ---------- Browser surfaces, themed from the palette ---------- */
+  ::selection {
+    background: var(--color-selection);
+    color: var(--color-navy);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+  input[type="checkbox"], input[type="radio"], progress {
+    accent-color: var(--color-navy);
+  }
+  html {
+    scrollbar-color: var(--color-control) var(--color-slate);
+  }
+}
+
+/* =========================================================
+   COMPONENTS
+   ========================================================= */
+@layer components {
+
+  /* ---------- Layout shells ---------- */
+  .layout {
+    @apply min-h-screen flex flex-col;
+  }
+
+  /* ---------- Authenticated app shell (components/shell/) ----------
+     Two columns: fixed 252px navy sidebar + fluid main column. Below 1024px
+     the sidebar becomes an off-canvas drawer opened from the header. */
+  .app-shell {
+    @apply flex min-h-screen bg-bg;
+  }
+  /* min-w-0: as a flex item the main column would otherwise grow to its
+     widest table; with it, wide tables scroll inside .table-wrap instead. */
+  .app-main {
+    @apply flex-1 min-w-0 flex flex-col;
+  }
+  .skip-link {
+    @apply fixed left-3 top-3 z-[60] -translate-y-24 rounded-control bg-surface px-4 py-2.5 text-sm font-bold text-navy no-underline shadow-card;
+  }
+  .skip-link:focus {
+    @apply translate-y-0;
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    @apply sticky top-0 flex flex-col w-sidebar shrink-0 h-screen overflow-hidden bg-navy text-sidebar-text outline-none;
+    height: 100dvh;
+  }
+  .sidebar :focus-visible {
+    outline-color: var(--color-focus-on-dark);
+  }
+  .sidebar-drawer {
+    @apply fixed left-0 top-0 z-50 max-w-[85vw] invisible -translate-x-full;
+    transition: transform 280ms var(--ease-out), visibility 0s linear 280ms;
+  }
+  .sidebar-drawer.is-open {
+    @apply visible translate-x-0;
+    transition: transform 280ms var(--ease-out), visibility 0s;
+  }
+  .drawer-backdrop {
+    @apply fixed inset-0 z-40 bg-[var(--color-overlay)] opacity-0 pointer-events-none;
+    transition: opacity 200ms ease-out;
+  }
+  .drawer-backdrop.is-open {
+    @apply opacity-100 pointer-events-auto;
+  }
+  .sidebar-tape {
+    @apply shrink-0;
+    height: var(--stripe-height);
+    background: var(--hazard-tape);
+  }
+  .sidebar-brand {
+    @apply relative shrink-0 flex flex-col items-center text-center px-5 pt-5 pb-4 border-b border-sidebar-divider;
+  }
+  .sidebar-close {
+    @apply absolute right-2 top-2 inline-flex items-center justify-center w-10 h-10 rounded-control border-0 bg-transparent text-sidebar-text cursor-pointer hover:bg-sidebar-hover hover:text-white;
+  }
+  .seal {
+    @apply rounded-full object-cover shrink-0;
+    box-shadow: 0 0 0 2px var(--color-sidebar-divider);
+  }
+  .seal-placeholder {
+    @apply inline-flex items-center justify-center bg-navy-deep text-sidebar-label;
+    border: 1.5px dashed var(--color-sidebar-label);
+    box-shadow: none;
+  }
+  .wordmark {
+    @apply mt-3 mb-0 inline-flex items-center gap-1.5 text-[19px] font-extrabold leading-none tracking-[-0.02em] text-white;
+  }
+  .wordmark-shield,
+  .wordmark-accent {
+    @apply text-orange;
+  }
+  .brand-subtitle {
+    @apply mt-2 mb-0 max-w-[200px] text-[10px] font-semibold uppercase leading-[1.55] tracking-[0.14em] text-sidebar-label;
+  }
+
+  .sidebar-nav {
+    @apply flex-1 min-h-0 overflow-y-auto px-2.5 py-4 flex flex-col gap-5;
+    overscroll-behavior: contain;
+    scrollbar-color: var(--color-sidebar-divider) transparent;
+  }
+  .nav-section-label {
+    @apply m-0 px-2.5 mb-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-sidebar-label;
+  }
+  .nav-list {
+    @apply m-0 p-0 list-none flex flex-col gap-0.5;
+  }
+  .nav-item {
+    @apply flex items-center gap-2.5 w-full min-h-11 py-2 px-2.5 rounded-control border-0 bg-transparent text-left text-[14px] font-medium leading-none text-sidebar-text no-underline cursor-pointer font-sans;
+    transition: background-color 150ms ease-out, color 150ms ease-out;
+  }
+  .nav-item:hover {
+    @apply bg-sidebar-hover text-white;
+  }
+  .nav-icon {
+    @apply shrink-0;
+  }
+  .nav-label {
+    @apply flex-1 min-w-0 leading-snug;
+  }
+  /* Current page: white pill, bold navy text (12.6:1). */
+  .nav-item.active,
+  .nav-item.active:hover {
+    @apply bg-surface text-navy font-bold;
+  }
+  .nav-group.is-current > .nav-group-toggle {
+    @apply text-white font-semibold;
+  }
+  .nav-badge + .nav-chevron,
+  .nav-badge-off + .nav-chevron {
+    margin-left: -4px;
+  }
+  .nav-chevron {
+    @apply shrink-0 text-sidebar-label;
+    transition: transform 200ms var(--ease-out);
+  }
+  .nav-group-toggle[aria-expanded="true"] .nav-chevron {
+    transform: rotate(180deg);
+  }
+  .nav-children {
+    @apply m-0 mt-0.5 mb-1 ml-[19px] pl-2 list-none flex flex-col gap-0.5 border-l border-sidebar-divider;
+  }
+  .nav-item-nested {
+    @apply min-h-10 text-[13.5px];
+  }
+  .nav-badge {
+    @apply shrink-0 inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-pill text-[11.5px] font-bold leading-none tabular-nums;
+  }
+  .nav-badge-pending {
+    @apply bg-orange text-navy;
+  }
+  .nav-badge-critical {
+    @apply bg-red text-white;
+  }
+  .nav-badge-off {
+    @apply shrink-0 text-[11px] font-semibold uppercase tracking-[0.08em] text-sidebar-label;
+  }
+  .nav-item.active .nav-badge-off {
+    @apply text-ink-muted;
+  }
+
+  .hotline {
+    @apply shrink-0 m-3 mt-0 flex items-center gap-3 rounded-card bg-navy-deep p-3.5;
+  }
+  .hotline-tile {
+    @apply inline-flex items-center justify-center w-10 h-10 shrink-0 rounded-tile bg-red text-white;
+  }
+  .hotline-body {
+    @apply min-w-0;
+  }
+  .hotline-label {
+    @apply m-0 text-[10.5px] font-bold uppercase tracking-[0.12em] text-sidebar-label;
+  }
+  .hotline-number {
+    @apply block mt-0.5 text-[16px] font-extrabold leading-tight tracking-[-0.01em] text-white no-underline hover:underline;
+  }
+  .hotline-national {
+    @apply m-0 mt-0.5 text-[12px] text-sidebar-text;
+  }
+  .hotline-national a {
+    @apply font-bold text-white no-underline hover:underline;
+  }
+
+  /* ---------- Top header ---------- */
+  .topbar {
+    @apply sticky top-0 z-30 flex items-center justify-between gap-3 h-header px-3 sm:px-6 lg:px-7 bg-navy text-sidebar-text;
+  }
+  .topbar :focus-visible {
+    outline-color: var(--color-focus-on-dark);
+  }
+  .topbar-start,
+  .topbar-end {
+    @apply flex items-center gap-1.5 sm:gap-3 min-w-0;
+  }
+  .topbar-end {
+    @apply shrink-0;
+  }
+  .topbar-icon-btn {
+    @apply relative inline-flex items-center justify-center w-10 h-10 shrink-0 rounded-control border-0 bg-transparent text-sidebar-text cursor-pointer hover:bg-sidebar-hover hover:text-white;
+  }
+  .bell-dot {
+    @apply absolute right-2 top-2 w-2.5 h-2.5 rounded-full bg-orange;
+    box-shadow: 0 0 0 2px var(--color-navy);
+  }
+  .topbar-divider {
+    @apply w-px h-8 bg-sidebar-divider;
+  }
+
+  /* Hazard status chip */
+  .status-chip-wrap {
+    @apply min-w-0;
+  }
+  .status-chip-slot {
+    @apply block w-36 h-8;
+  }
+  .status-chip-link {
+    @apply flex items-center gap-3 min-w-0 rounded-pill no-underline text-sidebar-text;
+  }
+  a.status-chip-link:hover .status-summary {
+    @apply text-white underline;
+  }
+  .status-chip {
+    @apply inline-flex items-center gap-1.5 shrink-0 h-8 pl-2 pr-3 rounded-pill text-[12px] font-extrabold uppercase tracking-[0.06em] whitespace-nowrap;
+  }
+  .status-chip-critical {
+    @apply bg-red text-white;
+  }
+  .status-chip-warning {
+    @apply bg-orange text-navy;
+  }
+  .status-chip-normal {
+    @apply bg-green-tint text-green-ink;
+  }
+  .status-chip-icon {
+    @apply inline-flex items-center justify-center w-5 h-5 rounded-full;
+  }
+  /* Critical only: a slow pulse ring on the siren — the shell's one moving element. */
+  .status-chip-critical .status-chip-icon {
+    animation: chip-pulse 2.2s var(--ease-out) infinite;
+  }
+  @keyframes chip-pulse {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-white) 60%, transparent); }
+    100% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-white) 0%, transparent); }
+  }
+  .status-summary {
+    @apply hidden md:block min-w-0 truncate text-[13.5px] font-medium;
+  }
+
+  /* User menu */
+  .user-menu {
+    @apply relative;
+  }
+  .user-menu-btn {
+    @apply flex items-center gap-2.5 h-11 pl-1 pr-1.5 lg:pr-2 rounded-control border-0 bg-transparent text-left cursor-pointer font-sans text-sidebar-text hover:bg-sidebar-hover;
+  }
+  .avatar {
+    @apply inline-flex items-center justify-center w-9 h-9 shrink-0 rounded-full bg-orange text-navy text-[13px] font-extrabold tracking-[0.02em];
+  }
+  .user-meta {
+    @apply flex flex-col min-w-0 leading-tight;
+  }
+  .user-name {
+    @apply max-w-[180px] truncate text-[13.5px] font-bold text-white;
+  }
+  .user-role {
+    @apply text-[12px] text-sidebar-label;
+  }
+  .user-chevron {
+    @apply shrink-0 text-sidebar-label;
+    transition: transform 200ms var(--ease-out);
+  }
+  .user-chevron.is-open {
+    transform: rotate(180deg);
+  }
+  .user-menu-pop {
+    @apply absolute right-0 top-[calc(100%+8px)] z-40 w-60 rounded-card border border-border bg-surface p-1.5 text-ink;
+    box-shadow: var(--shadow-popover);
+    transform-origin: top right;
+    animation: pop-in 160ms var(--ease-out);
+  }
+  @keyframes pop-in {
+    from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+  .user-menu-pop :focus-visible {
+    outline-color: var(--color-focus);
+    outline-offset: -2px;
+  }
+  .user-menu-head {
+    @apply flex flex-col gap-0.5 px-3 pt-2 pb-2.5 mb-1 border-b border-border;
+  }
+  .user-menu-name {
+    @apply text-[14px] font-bold text-navy;
+  }
+  .user-menu-role {
+    @apply text-[12.5px] text-ink-subtle;
+  }
+  .user-menu-item {
+    @apply flex items-center gap-2.5 w-full h-10 px-3 rounded-control border-0 bg-transparent text-left text-[14px] font-medium text-ink no-underline cursor-pointer font-sans hover:bg-slate focus:bg-slate;
+  }
+  /* Below 1024px the name/role collapse to the avatar (still read by screen readers). */
+  @media (max-width: 1023.98px) {
+    .user-meta {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar-drawer, .sidebar-drawer.is-open, .drawer-backdrop, .nav-chevron, .user-chevron { transition: none; }
+    .status-chip-critical .status-chip-icon, .user-menu-pop { animation: none; }
+  }
+
+  /* ---------- Page content ---------- */
+  .main-content {
+    @apply flex-1 min-w-0 px-4 py-6 sm:p-page outline-none;
+  }
+  .main-inner {
+    @apply mx-auto w-full max-w-content;
+  }
+  .page-header {
+    @apply flex items-end justify-between gap-x-6 gap-y-4 mb-6 flex-wrap;
+  }
+  .page-header h1 {
+    @apply mb-0 text-[24px] sm:text-[28px] font-extrabold leading-tight tracking-[-0.02em];
+  }
+  .page-header p {
+    @apply text-ink-muted mt-1.5 mb-0 max-w-[70ch] text-[14.5px];
+  }
+
+  /* ---------- Cards / stats ---------- */
+  .card {
+    @apply bg-surface border border-border rounded-card shadow-card p-5;
+  }
+  .stat-grid {
+    @apply grid gap-4 mb-6;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  }
+  /* Barangay Map's search/filter controls row — replaces a fixed 4-column
+     inline grid that didn't wrap on tablet/mobile (Step 4 responsiveness). */
+  .map-controls-row {
+    @apply grid gap-3.5;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+  /* Step 6 — app-wide responsive replacement for the many pages that used a
+     fixed inline gridTemplateColumns (e.g. "2fr 1fr 1fr 1fr") on a .form-row
+     search/filter bar. A fixed inline style always applies, so it overrode
+     .form-row's responsive md:grid-cols-2 and forced the same cramped column
+     count on phones as on desktop. .filter-row wraps the same controls onto
+     as many rows as needed instead, same pattern as .map-controls-row above. */
+  .filter-row {
+    @apply grid gap-3.5;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+  /* Step 6 — same idea for wider two-panel layouts (analytics charts, side-by-
+     side summary panels) that used a fixed "1fr 1fr" inline style. */
+  .panel-row {
+    @apply grid gap-4;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+  /* Barangay Map's header action buttons (Reset to Barangay / My Location) —
+     wrap onto their own row on narrow screens instead of overflowing. */
+  .map-header-actions {
+    @apply flex gap-2 flex-wrap;
+  }
+  /* Stat cards: a 4px top band carries the tone (navy by default). Drawn as a
+     clipped band rather than border-top, which would taper into the 16px corners. */
+  .stat-card {
+    @apply relative overflow-hidden bg-surface border border-border rounded-card p-5 pt-6 shadow-card;
+    --card-band: var(--color-navy);
+  }
+  .stat-card::before {
+    content: "";
+    @apply absolute inset-x-0 top-0 h-1;
+    background: var(--card-band);
+  }
+  .stat-card.warn {
+    --card-band: var(--color-orange);
+  }
+  .stat-card .stat-label {
+    @apply text-[13px] text-ink-muted font-semibold;
+  }
+  .stat-card .stat-value {
+    @apply text-[30px] font-extrabold text-navy mt-1 leading-tight tracking-[-0.02em];
+  }
+
+  /* ---------- Buttons (see components/ui/Button.jsx) ---------- */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 min-h-[40px] py-2 px-4 rounded-control border border-transparent text-sm font-semibold leading-tight cursor-pointer no-underline font-sans transition-colors duration-150;
+  }
+  /* Primary (navy): white text, 12.6:1. btn-secondary is the older name. */
+  .btn-primary, .btn-secondary {
+    @apply bg-navy text-white;
+  }
+  .btn-primary:hover, .btn-secondary:hover {
+    background: color-mix(in srgb, var(--color-navy) 86%, var(--color-white));
+  }
+  /* Danger (red): urgent response actions only. White text, 4.8:1 (6.5:1 on hover). */
+  .btn-danger {
+    @apply bg-red text-white hover:bg-red-ink;
+  }
+  .btn-ghost {
+    @apply bg-surface border-control text-navy hover:bg-slate;
+  }
+  /* Inline secondary action ("Situation Report", "View all"). */
+  .btn-text {
+    @apply min-h-0 p-0 bg-transparent text-navy underline decoration-[1.5px] underline-offset-[3px] hover:decoration-2;
+  }
+  /* Outlined white button for navy surfaces (public hero). */
+  .btn-outline {
+    @apply bg-transparent border-white/50 text-white hover:bg-white/10;
+  }
+  .btn-sm {
+    @apply min-h-[32px] py-1.5 px-3 text-[13px] gap-1.5;
+  }
+  /* Disabled: a flat slate button with readable text (6.9:1) instead of
+     fading the whole button to 55% opacity, which made labels hard to read.
+     Still clearly "unavailable": no hover change, not-allowed cursor. */
+  .btn:disabled,
+  .btn:disabled:hover {
+    @apply bg-slate text-ink-muted border-border cursor-not-allowed;
+    filter: none;
+  }
+
+  /* ---------- Forms ---------- */
+  .form-group {
+    @apply mb-3.5;
+  }
+  .form-group label {
+    @apply block text-[13px] font-semibold mb-1.5 text-ink;
+  }
+  .form-row {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-3.5;
+  }
+  input, select, textarea {
+    @apply w-full min-h-[40px] py-2 px-3 border border-control rounded-control text-sm font-sans bg-surface text-ink;
+  }
+  input:focus, select:focus, textarea:focus {
+    @apply outline outline-2 outline-navy outline-offset-1 border-navy;
+  }
+  textarea {
+    @apply resize-y min-h-[70px];
+  }
+  /* Password input with an inline show/hide (eye) icon button on the right edge. */
+  .password-field {
+    @apply relative;
+  }
+  .password-field input {
+    @apply pr-11;
+  }
+  .password-toggle {
+    @apply absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-md border-none bg-transparent text-ink-soft cursor-pointer hover:bg-slate hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary;
+  }
+
+  /* ---------- Tables ----------
+     Tables sit in white cards on the slate page; the header band is slate
+     with navy labels. .table-wrap scrolls sideways on narrow screens. */
+  .table-wrap {
+    @apply overflow-x-auto;
+    overscroll-behavior-x: contain;
+  }
+  .table-wrap table, table {
+    @apply w-full border-collapse text-[13.5px];
+  }
+  table th, table td {
+    @apply py-3 px-3.5 text-left border-b border-border whitespace-nowrap;
+  }
+  table th {
+    @apply bg-slate text-navy uppercase text-[11.5px] tracking-[0.06em] font-bold py-2.5;
+  }
+  table tbody tr:hover {
+    background: color-mix(in srgb, var(--color-slate) 55%, var(--color-white));
+  }
+  table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  /* ---------- Badges (see components/ui/StatusBadge.jsx) ----------
+     Every badge keeps its text label, so status never depends on colour alone. */
+  .badge {
+    @apply inline-flex items-center gap-1 py-[3px] px-2.5 rounded-pill border border-transparent text-[12px] font-bold leading-[1.35] whitespace-nowrap align-middle;
+  }
+  /* Critical: solid red, white text (4.8:1). Reserved for emergencies. */
+  .badge-critical {
+    @apply bg-red text-white;
+  }
+  /* High / partial: red tint, red-ink text (5.9:1). */
+  .badge-high {
+    @apply bg-red-tint text-red-ink border-red-border;
+  }
+  /* Hazard "Warning" level: solid orange, navy text (6.1:1). */
+  .badge-attention {
+    @apply bg-orange text-navy;
+  }
+  /* Pending / medium: orange tint, orange-ink text (4.5:1). */
+  .badge-medium, .badge-pending {
+    @apply bg-orange-tint text-orange-ink;
+  }
+  /* Done / verified / low: green tint, green-ink text (6.5:1). */
+  .badge-low, .badge-verified, .badge-approved, .badge-distributed {
+    @apply bg-green-tint text-green-ink;
+  }
+  .badge-rejected {
+    @apply bg-red-tint text-red-ink;
+  }
+  /* ---------- Dashboard (components/dashboard/) ---------- */
+  .page-header-actions {
+    @apply min-w-0 max-w-full;
+  }
+  .dash-section {
+    @apply mb-8;
+  }
+  .section-title {
+    @apply m-0 mb-3 text-[17px] font-bold leading-snug tracking-[-0.01em] text-navy;
+  }
+
+  /* Phase tracker: segmented pill; scrolls sideways when it doesn't fit. */
+  .phase-scroll {
+    @apply max-w-full overflow-x-auto;
+    scrollbar-width: none;
+  }
+  .phase-tracker {
+    @apply inline-flex items-center gap-0.5 m-0 p-1 list-none rounded-pill border border-border bg-surface shadow-card;
+  }
+  .phase {
+    @apply inline-flex items-center h-8 px-3.5 rounded-pill text-[13px] font-semibold whitespace-nowrap text-ink-subtle;
+  }
+  .phase.is-current {
+    @apply bg-navy text-white font-bold;
+  }
+  .phase.is-current.is-response {
+    @apply bg-red text-white;
+  }
+
+  /* Hazard banner (components/HazardBanner.jsx). Critical = red, Alert/Warning = orange. */
+  .hazard-banner {
+    @apply relative overflow-hidden mb-8 rounded-card border border-border bg-surface shadow-card;
+    --hz-fill: var(--color-red);
+    --hz-on-fill: var(--color-white);
+    --hz-label: var(--color-red-ink);
+    --hz-tape: var(--hazard-tape-red);
+  }
+  .hazard-banner.hazard-warning {
+    --hz-fill: var(--color-orange);
+    --hz-on-fill: var(--color-navy);
+    --hz-label: var(--color-navy);
+    --hz-tape: var(--hazard-tape);
+  }
+  .hazard-banner.hazard-normal {
+    --hz-fill: var(--color-green-tint);
+    --hz-on-fill: var(--color-green-ink);
+    --hz-label: var(--color-green-ink);
+  }
+  .hazard-banner.hazard-critical {
+    @apply border-red-border;
+  }
+  .hazard-tape {
+    height: var(--stripe-height);
+    background: var(--hz-tape);
+  }
+  .hazard-body {
+    @apply flex flex-col md:flex-row md:items-start gap-4 p-5;
+  }
+  .hazard-tile {
+    @apply inline-flex items-center justify-center w-12 h-12 shrink-0 rounded-tile;
+    background: var(--hz-fill);
+    color: var(--hz-on-fill);
+  }
+  .hazard-main {
+    @apply flex-1 min-w-0;
+  }
+  .hazard-label {
+    @apply m-0 text-[11.5px] font-bold uppercase tracking-[0.12em];
+    color: var(--hz-label);
+  }
+  .hazard-headline {
+    @apply mt-1 mb-0 text-[20px] font-extrabold leading-tight tracking-[-0.015em] text-navy;
+  }
+  .hazard-list {
+    @apply mt-3.5 mb-0 p-0 list-none flex flex-col gap-2;
+  }
+  .hazard-row {
+    @apply flex items-start gap-3 text-[14px] leading-relaxed text-ink;
+  }
+  .purok-tag {
+    @apply inline-flex items-center shrink-0 h-6 px-2.5 mt-px rounded-pill text-[12px] font-bold whitespace-nowrap;
+    background: var(--hz-fill);
+    color: var(--hz-on-fill);
+  }
+  .hazard-row-text {
+    @apply min-w-0;
+  }
+  .hazard-row-text strong {
+    @apply text-navy;
+  }
+  .hazard-weather {
+    @apply mt-3 mb-0 text-[13px] text-ink-subtle;
+  }
+  .hazard-actions {
+    @apply shrink-0;
+  }
+
+  /* "Needs your action" KPI cards */
+  /* Four action cards: 4 across from 1280px, 2 x 2 below (never 3 + 1), 1 column under 640px. */
+  .kpi-grid {
+    @apply grid gap-gap;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  @media (min-width: 1280px) {
+    .kpi-grid {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+  }
+  .kpi-card {
+    @apply relative overflow-hidden flex flex-col gap-3 p-5 pt-6 rounded-card border border-border bg-surface shadow-card text-ink no-underline;
+    --kpi-band: var(--color-orange);
+    transition: border-color 150ms ease-out;
+  }
+  .kpi-card::before {
+    content: "";
+    @apply absolute inset-x-0 top-0 h-1;
+    background: var(--kpi-band);
+  }
+  .kpi-card.kpi-ok {
+    --kpi-band: var(--color-green);
+  }
+  .kpi-card.kpi-critical {
+    --kpi-band: var(--color-red);
+  }
+  .kpi-card:hover {
+    @apply border-control;
+  }
+  .kpi-head {
+    @apply flex items-center gap-3;
+  }
+  .kpi-tile {
+    @apply inline-flex items-center justify-center w-10 h-10 shrink-0 rounded-tile bg-orange-tint text-orange-ink;
+  }
+  .kpi-critical .kpi-tile {
+    @apply bg-red-tint text-red-ink;
+  }
+  .kpi-ok .kpi-tile {
+    @apply bg-green-tint text-green-ink;
+  }
+  .kpi-label {
+    @apply text-[14px] font-semibold leading-snug text-ink-muted;
+  }
+  .kpi-value {
+    @apply text-[38px] font-extrabold leading-none tracking-[-0.03em] text-navy tabular-nums;
+  }
+  .kpi-sub {
+    @apply block text-[13px] text-ink-subtle;
+  }
+  .kpi-capacity {
+    @apply flex flex-col gap-2;
+  }
+  .kpi-link {
+    @apply mt-auto inline-flex items-center gap-1.5 pt-1 text-[13.5px] font-bold text-navy;
+  }
+  .kpi-arrow {
+    transition: transform 200ms var(--ease-out);
+  }
+  .kpi-card:hover .kpi-link {
+    @apply underline underline-offset-[3px];
+  }
+  .kpi-card:hover .kpi-arrow {
+    transform: translateX(3px);
+  }
+
+  /* Module cards */
+  .module-grid {
+    @apply grid gap-gap;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+  .module-card {
+    @apply flex flex-col overflow-hidden rounded-card border border-border bg-surface shadow-card;
+  }
+  .module-head {
+    @apply flex items-center gap-3 px-5 py-3.5 bg-slate border-b border-border;
+  }
+  .module-num {
+    @apply inline-flex items-center justify-center w-8 h-8 shrink-0 rounded-tile bg-navy text-white text-[14px] font-extrabold tabular-nums;
+  }
+  .module-title {
+    @apply flex-1 min-w-0 m-0 text-[15.5px] font-bold leading-snug text-navy;
+  }
+  .module-body {
+    @apply flex-1 px-5 py-1.5;
+  }
+  .module-foot {
+    @apply flex items-center gap-x-4 gap-y-2 flex-wrap px-5 py-4 border-t border-border;
+  }
+  .module-link {
+    @apply text-[13.5px] font-semibold text-navy underline decoration-[1.5px] underline-offset-[3px] hover:decoration-2;
+  }
+
+  /* A table inside a white card, with its own heading row. */
+  .table-card {
+    @apply p-0 overflow-hidden;
+  }
+  .table-card-head {
+    @apply flex items-center justify-between gap-4 px-5 py-4;
+  }
+  .table-card-head .section-title {
+    @apply mb-0;
+  }
+  .table-card .table-wrap {
+    @apply border-t border-border;
+  }
+  .table-card .empty-state {
+    @apply border-t border-border;
+  }
+
+  /* A card whose 4px top band marks its tone (replaces left-edge stripes).
+     Navy by default; red for critical callouts, orange for attention. */
+  .card-band {
+    @apply relative overflow-hidden pt-6;
+    --card-band: var(--color-navy);
+  }
+  .card-band::before {
+    content: "";
+    @apply absolute inset-x-0 top-0 h-1;
+    background: var(--card-band);
+  }
+  .card-band-red {
+    --card-band: var(--color-red);
+  }
+  .card-band-orange {
+    --card-band: var(--color-orange);
+  }
+
+  /* Summary figures laid out as a grid of metric rows (Hazard Monitoring). */
+  .summary-card {
+    @apply mb-6;
+  }
+  .metric-grid {
+    @apply grid gap-x-8;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+  .metric-grid .metric-row {
+    @apply border-b border-border;
+  }
+  .summary-actions {
+    @apply flex items-center gap-2 flex-wrap mt-4 pt-4 border-t border-border;
+  }
+
+  /* Round delete control on report photo thumbnails. */
+  .photo-delete {
+    @apply absolute -top-2 -right-2 inline-flex items-center justify-center w-6 h-6 rounded-full border-2 border-surface bg-red text-white cursor-pointer hover:bg-red-ink;
+  }
+
+  /* < 640px: every grid is a single column. */
+  @media (max-width: 639.98px) {
+    .kpi-grid, .module-grid, .stat-grid, .panel-row, .filter-row, .map-controls-row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .page-header-actions {
+      @apply w-full;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .kpi-card, .kpi-arrow { transition: none; }
+  }
+  /* Phase 22: household not yet assessed by the DSS (no usable report) */
+  .badge-unassessed {
+    @apply bg-surface text-ink-muted border-border;
+  }
+  /* Phase 21: Ready for Distribution — solid navy so it stands out */
+  .badge-ready {
+    @apply bg-navy text-white;
+  }
+
+  /* ---------- Metric values (components/ui/StatValue.jsx) ---------- */
+  .stat-val {
+    @apply inline-flex items-center gap-1 font-bold text-[14px] leading-[1.35] tabular-nums;
+  }
+  .stat-val-neutral {
+    @apply text-navy;
+  }
+  .stat-val-critical, .stat-val-pending, .stat-val-ok {
+    @apply rounded-pill px-2.5 py-[2px] text-[13px];
+  }
+  .stat-val-critical {
+    @apply bg-red text-white;
+  }
+  .stat-val-pending {
+    @apply bg-orange text-navy;
+  }
+  .stat-val-ok {
+    @apply bg-green-tint text-green-ink pl-2;
+  }
+  /* Label/value rows (components/ui/MetricRow.jsx), inside <dl class="metric-list">. */
+  .metric-list {
+    @apply m-0 flex flex-col;
+  }
+  .metric-row {
+    @apply flex items-center justify-between gap-4 py-2.5 border-b border-border last:border-b-0;
+  }
+  .metric-row dt {
+    @apply text-[13.5px] text-ink-muted leading-snug;
+  }
+  .metric-row dd {
+    @apply m-0 shrink-0;
+  }
+
+  /* ---------- Capacity bar (components/ui/CapacityBar.jsx) ---------- */
+  .capacity-track {
+    @apply h-2 w-full rounded-pill bg-slate overflow-hidden;
+  }
+  .capacity-fill {
+    @apply block h-full rounded-pill;
+    transition: width 400ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .capacity-ok { @apply bg-green; }
+  .capacity-pending { @apply bg-orange; }
+  .capacity-critical { @apply bg-red; }
+  .capacity-empty { @apply bg-transparent; }
+  @media (prefers-reduced-motion: reduce) {
+    .capacity-fill { transition: none; }
+  }
+
+  /* ---------- Phase 21: resident relief status tracker ---------- */
+  .relief-steps {
+    @apply flex flex-wrap gap-2 list-none p-0 m-0;
+  }
+  .relief-steps li {
+    @apply flex items-center gap-2 text-[13px] text-ink-soft border border-border rounded-full px-3 py-1;
+  }
+  .relief-steps li.done {
+    @apply text-navy border-navy;
+  }
+  .relief-steps li.current {
+    @apply bg-navy text-white border-navy;
+  }
+  .relief-steps .step-num {
+    @apply inline-flex items-center justify-center w-5 h-5 rounded-full border border-current text-[11px] font-semibold;
+  }
+  .ready-box {
+    @apply border-2 border-navy rounded-card p-4 mb-5 bg-surface;
+  }
+  .ready-box h3 {
+    @apply text-[15px] mb-2;
+  }
+  .ready-box dl {
+    @apply grid grid-cols-[110px_1fr] gap-x-3 gap-y-1 text-sm m-0;
+  }
+  .ready-box dt {
+    @apply text-ink-soft;
+  }
+  .ready-box dd {
+    @apply m-0 font-medium text-ink;
+  }
+
+  /* ---------- Auth pages ---------- */
+  .auth-wrap {
+    @apply flex-1 flex items-center justify-center py-10 px-5 bg-bg;
+  }
+  .auth-card {
+    @apply w-full max-w-[420px] bg-surface border border-border rounded-2xl p-8 shadow-card;
+  }
+  .auth-card h2 {
+    @apply text-2xl;
+  }
+  .auth-card .sub {
+    @apply text-ink-soft text-[13.5px] mb-5;
+  }
+  .auth-switch {
+    @apply mt-4 text-[13.5px] text-ink-soft text-center;
+  }
+
+  .section {
+    @apply py-10 md:py-[52px] px-5 md:px-8 max-w-[1080px] mx-auto;
+  }
+  .section h2 {
+    @apply text-[26px];
+  }
+  .feature-grid {
+    @apply grid gap-4 mt-6;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+  .feature-card {
+    @apply bg-surface border border-border rounded p-5;
+  }
+  .feature-card .num {
+    @apply font-display text-accent text-[13px] font-bold;
+  }
+
+  /* ---------- Alerts / states ---------- */
+  .alert {
+    @apply py-3 px-4 rounded-control border border-transparent text-[13.5px] font-medium mb-4;
+  }
+  .alert-error {
+    @apply bg-red-tint text-red-ink border-red-border;
+  }
+  .alert-success {
+    @apply bg-green-tint text-green-ink;
+  }
+  .alert-warning {
+    @apply bg-orange-tint text-orange-ink;
+  }
+
+  .empty-state {
+    @apply p-7 text-center text-ink-soft text-sm;
+  }
+
+  /* ---------- Modal ---------- */
+  .modal-overlay {
+    @apply fixed inset-0 bg-[var(--color-overlay)] flex items-center justify-center z-50 p-5;
+  }
+  .modal-box {
+    @apply bg-surface rounded-card w-full max-w-[520px] p-6 max-h-[90vh] overflow-y-auto;
+  }
+  .modal-box .modal-header {
+    @apply flex justify-between items-start gap-4 mb-4;
+  }
+  .icon-btn {
+    @apply inline-flex items-center justify-center w-9 h-9 shrink-0 rounded-control border-0 bg-transparent text-ink-muted cursor-pointer hover:bg-slate hover:text-navy;
+  }
+  .modal-box .modal-actions {
+    @apply flex justify-end gap-2.5 mt-[18px];
+  }
+
+  .loading-text {
+    @apply p-6 text-ink-soft text-sm;
+  }
+
+  /* ---------- Phase 19: auto-refresh, idle logout, notifications ---------- */
+  .idle-warning {
+    @apply fixed bottom-4 right-4 left-4 sm:left-auto z-50 flex items-center gap-3 flex-wrap bg-warning-soft text-warning-ink border border-warning rounded-lg px-4 py-3 shadow-card text-sm;
+  }
+  .notif-item {
+    @apply flex gap-3 items-start py-3 border-b border-border last:border-b-0;
+  }
+  .notif-item .notif-dot {
+    @apply mt-1.5 h-2.5 w-2.5 rounded-full bg-primary shrink-0;
+  }
+  .notif-item.read .notif-dot {
+    @apply bg-transparent;
+  }
+  .notif-item.read .notif-title {
+    @apply font-normal;
+  }
+  .notif-title {
+    @apply font-semibold text-ink text-sm;
+  }
+  .notif-meta {
+    @apply text-xs text-ink-soft mt-0.5;
+  }
+  .summary-box {
+    @apply bg-accent-soft border border-border rounded-lg p-4 text-sm text-ink leading-relaxed mb-5;
+  }
+  .summary-box h3 {
+    @apply text-[15px] mb-1.5;
+  }
+  .summary-box .summary-note {
+    @apply text-xs text-ink-soft mt-2;
+  }
+  .info-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm;
+  }
+  .occupancy-bar {
+    @apply h-2 rounded-full bg-border overflow-hidden mt-1;
+  }
+  .occupancy-bar > span {
+    @apply block h-full bg-primary;
+  }
+  .occupancy-bar.warn > span {
+    @apply bg-warning;
+  }
+  .occupancy-bar.full > span {
+    @apply bg-danger;
+  }
+
+  /* ---------- Phase 19: map symbols ---------- */
+  .map-pin {
+    @apply flex items-center justify-center w-[26px] h-[26px] rounded-md border-2 border-white text-white text-xs font-bold shadow-card;
+  }
+  .map-pin-evac { background: var(--color-green-ink); }
+  .map-pin-evac.map-pin-full { background: var(--color-orange-ink); }
+  .map-pin-evac.map-pin-closed { background: var(--color-text-subtle); }
+  .map-pin-site {
+    @apply w-6 h-6 rounded-full bg-navy;
+  }
+  /* Phase 24: Purok labels on the map (permanent tooltips, no arrow/box). */
+  .leaflet-tooltip.purok-label {
+    @apply bg-white/80 border-0 shadow-none px-1 py-0 text-[11px] font-semibold text-ink rounded;
+  }
+  .leaflet-tooltip.purok-label::before { display: none; }
+  .purok-chip {
+    @apply inline-flex items-center gap-2 rounded-full border border-ink px-3 py-1 text-[13px] font-semibold;
+  }
+  /* Phase 25: printable paper assessment form */
+  .paper-form { @apply bg-white border border-ink rounded-lg p-5 text-[12.5px] text-black max-w-[820px]; }
+  .pf-head { @apply flex justify-between gap-4 border-b-2 border-black pb-2 mb-2; }
+  .pf-title { @apply font-bold text-[14px]; }
+  .pf-sub { @apply text-[11px]; }
+  .pf-formno { @apply font-semibold whitespace-nowrap flex items-end gap-1; }
+  .pf-formno .pf-blank { @apply inline-block w-28; }
+  .pf-section { @apply font-bold mt-3 mb-1 uppercase text-[11.5px] tracking-wide border-b border-black; }
+  .pf-grid { @apply grid grid-cols-2 gap-x-4 gap-y-1; }
+  .pf-line { @apply flex items-end gap-2 flex-wrap min-h-[26px]; }
+  .pf-wide { @apply col-span-2; }
+  .pf-label { @apply font-semibold whitespace-nowrap; }
+  .pf-blank { @apply flex-1 border-b border-black min-w-[80px] h-[18px]; }
+  .pf-box { @apply inline-flex items-center gap-1 mr-3; }
+  .pf-check { @apply inline-block w-[12px] h-[12px] border border-black; }
+  .pf-count { @apply mr-3; }
+  .pf-table { @apply w-full border-collapse my-1; }
+  .pf-table th, .pf-table td { @apply border border-black px-2 py-1 text-center text-[12px]; }
+  .pf-table td:first-child { @apply text-left font-semibold; }
+  .pf-notes { @apply border border-black h-24; }
+  .pf-foot { @apply text-[10.5px] mt-2 italic; }
+  @media print {
+    .sidebar, .no-print, .site-header, .site-foot, .site-mobile-nav, .hazard-tape-strip, header.topbar, .skip-link, .drawer-backdrop { display: none !important; }
+    .app-shell { display: block; background: none; }
+    .main-content { margin: 0 !important; padding: 0 !important; }
+    .main-inner { max-width: none; }
+    .paper-form { border: none; max-width: none; padding: 0; }
+  }
+
+  /* Phase 23: critical incident rows and the monitoring summary list. */
+  tr.row-critical td { background: var(--color-red-tint); }
+  tr.row-critical:hover td { background: var(--color-red-tint); }
+  /* Phase 23: disaster incident pins (colour set inline by severity); pending = dashed outline. */
+  .map-pin-incident {
+    @apply w-[22px] h-[22px] rounded-sm;
+    transform: rotate(45deg);
+  }
+  .map-pin-incident.map-pin-pending { border-style: dashed; border-color: var(--color-text); }
+  .map-legend {
+    @apply flex flex-wrap gap-x-4 gap-y-1.5 text-[12.5px] text-ink-soft mt-2.5 items-center;
+  }
+  .map-legend .map-pin {
+    @apply inline-flex w-[18px] h-[18px] text-[10px] mr-1 align-middle shadow-none;
+  }
+}
+
+/* =========================================================
+   SHARED PRIMITIVES ADDED FOR THE PUBLIC SITE
+   (components/ui: Button variants, HazardTape, IconTile, Skeleton)
+   ========================================================= */
+@layer components {
+  /* 52px buttons (public site calls to action). */
+  .btn-lg {
+    @apply min-h-[52px] px-6 text-[15px] gap-2.5;
+    border-radius: var(--radius-control-lg);
+  }
+  /* Orange fill, navy text (6.1:1). The public site's primary call to action. */
+  .btn-orange {
+    @apply bg-orange text-navy font-bold;
+  }
+  .btn-orange:hover {
+    background: color-mix(in srgb, var(--color-orange) 88%, var(--color-navy));
+  }
+  .btn-outline-navy {
+    @apply bg-transparent text-navy font-bold;
+    border: 2px solid var(--color-navy);
+  }
+  .btn-outline-navy:hover {
+    @apply bg-surface;
+  }
+  /* Outlined button for navy surfaces. */
+  .btn-outline-on-navy {
+    @apply bg-transparent text-white font-semibold;
+    border: 1.5px solid var(--color-navy-line-strong);
+  }
+  .btn-outline-on-navy:hover {
+    background: var(--color-sidebar-hover);
+    border-color: var(--color-on-navy-label);
+  }
+  /* White button with red text, for red alert headers (4.8:1). */
+  .btn-white-red {
+    @apply bg-surface text-red-ink font-bold;
+  }
+  .btn-white-red:hover {
+    @apply bg-red-tint;
+  }
+
+  .hazard-tape-strip {
+    height: var(--stripe-height);
+    flex-shrink: 0;
+  }
+  .hazard-tape-orange { background: var(--hazard-tape); }
+  .hazard-tape-red { background: var(--hazard-tape-red-navy); }
+
+  .icon-tile {
+    @apply inline-flex items-center justify-center shrink-0;
+    border-radius: var(--radius-tile-lg);
+  }
+  .icon-tile-navy { @apply bg-navy text-orange; }
+  .icon-tile-red { @apply bg-red text-white; }
+  .icon-tile-red-soft { background: var(--color-red-soft); @apply text-red-ink; }
+  .icon-tile-orange { @apply bg-orange text-navy; }
+  .icon-tile-green { @apply bg-green-tint text-green-ink; }
+  .icon-tile-white { @apply bg-surface text-navy; }
+  .icon-tile-on-navy { background: var(--color-navy); @apply text-orange; }
+
+  .skeleton {
+    @apply block rounded-control;
+    background: color-mix(in srgb, var(--color-border) 70%, var(--color-white));
+    animation: skeleton-pulse 1.4s ease-in-out infinite;
+  }
+  .skeleton-on-dark {
+    background: var(--color-navy-line);
+  }
+  @keyframes skeleton-pulse {
+    50% { opacity: 0.55; }
+  }
+
+  /* Public header seal: white disc. */
+  .seal-light {
+    @apply bg-surface;
+    object-fit: contain;
+    box-shadow: none;
+  }
+  .seal-placeholder-light {
+    @apply inline-flex items-center justify-center bg-surface text-navy;
+    box-shadow: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton { animation: none; }
+  }
+}

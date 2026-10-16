@@ -1,0 +1,452 @@
+{
+ "type": "FeatureCollection",
+ "name": "binitayan_purok_boundaries_candidate",
+ "properties": {
+  "status": "CANDIDATE \u2014 structurally checked, not an official Purok boundary survey",
+  "coordinate_order": "[longitude, latitude] (GeoJSON / WGS84)",
+  "built_by": "docs/purok_boundaries/build_purok_geojson.py"
+ },
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Purok 1",
+    "status": "candidate",
+    "source": "Coordinates supplied by the project team (docs/purok_boundaries/purok_coordinates_as_supplied.txt); not an official survey.",
+    "supplied_geometry": "LineString",
+    "supplied_vertices": 8,
+    "closed_as_supplied": false,
+    "closure_gap_m": 0.11,
+    "approved_edit": "Supplied end vertex [123.7134193, 13.1568152] removed (0.11 m from the start vertex; its closing edge crossed the first edge). Approved by the project team on 2026-10-16. No other vertex changed."
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       123.7134187,
+       13.156816
+      ],
+      [
+       123.7135638,
+       13.1557041
+      ],
+      [
+       123.7139416,
+       13.1557225
+      ],
+      [
+       123.7139969,
+       13.1549923
+      ],
+      [
+       123.714182,
+       13.1534485
+      ],
+      [
+       123.7127464,
+       13.1540416
+      ],
+      [
+       123.7129521,
+       13.1566624
+      ],
+      [
+       123.7134187,
+       13.156816
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Purok 2",
+    "status": "candidate",
+    "source": "Coordinates supplied by the project team (docs/purok_boundaries/purok_coordinates_as_supplied.txt); not an official survey.",
+    "supplied_geometry": "LineString",
+    "supplied_vertices": 14,
+    "closed_as_supplied": false,
+    "closure_gap_m": 0.07
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       123.7143332,
+       13.1571182
+      ],
+      [
+       123.7144383,
+       13.1563337
+      ],
+      [
+       123.7145641,
+       13.1558507
+      ],
+      [
+       123.7148965,
+       13.1553845
+      ],
+      [
+       123.7151718,
+       13.1544464
+      ],
+      [
+       123.7153122,
+       13.1534277
+      ],
+      [
+       123.7146312,
+       13.1532773
+      ],
+      [
+       123.7141982,
+       13.1534544
+      ],
+      [
+       123.7140046,
+       13.1550195
+      ],
+      [
+       123.7139541,
+       13.1557348
+      ],
+      [
+       123.7135749,
+       13.1557128
+      ],
+      [
+       123.7134312,
+       13.1568219
+      ],
+      [
+       123.7143355,
+       13.1571197
+      ],
+      [
+       123.7143338,
+       13.1571184
+      ],
+      [
+       123.7143332,
+       13.1571182
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Purok 3",
+    "status": "candidate",
+    "source": "Coordinates supplied by the project team (docs/purok_boundaries/purok_coordinates_as_supplied.txt); not an official survey.",
+    "supplied_geometry": "LineString",
+    "supplied_vertices": 7,
+    "closed_as_supplied": false,
+    "closure_gap_m": 0.17
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       123.7153273,
+       13.1574647
+      ],
+      [
+       123.7159427,
+       13.1555485
+      ],
+      [
+       123.714909,
+       13.1553929
+      ],
+      [
+       123.7145725,
+       13.1558535
+      ],
+      [
+       123.7144408,
+       13.1563596
+      ],
+      [
+       123.7143453,
+       13.1571169
+      ],
+      [
+       123.7153272,
+       13.1574662
+      ],
+      [
+       123.7153273,
+       13.1574647
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Purok 4",
+    "status": "candidate",
+    "source": "Coordinates supplied by the project team (docs/purok_boundaries/purok_coordinates_as_supplied.txt); not an official survey.",
+    "supplied_geometry": "LineString",
+    "supplied_vertices": 7,
+    "closed_as_supplied": false,
+    "closure_gap_m": 0.15
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       123.7163733,
+       13.1578527
+      ],
+      [
+       123.7168081,
+       13.1560819
+      ],
+      [
+       123.7167018,
+       13.1560459
+      ],
+      [
+       123.7167795,
+       13.15569
+      ],
+      [
+       123.7159581,
+       13.1555515
+      ],
+      [
+       123.7153383,
+       13.157471
+      ],
+      [
+       123.7163727,
+       13.1578539
+      ],
+      [
+       123.7163733,
+       13.1578527
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Purok 5A",
+    "status": "candidate",
+    "source": "Coordinates supplied by the project team (docs/purok_boundaries/purok_coordinates_as_supplied.txt); not an official survey.",
+    "supplied_geometry": "LineString",
+    "supplied_vertices": 5,
+    "closed_as_supplied": false,
+    "closure_gap_m": 0.15
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       123.7163838,
+       13.1578557
+      ],
+      [
+       123.7179213,
+       13.1582892
+      ],
+      [
+       123.7181109,
+       13.157209
+      ],
+      [
+       123.7166732,
+       13.1566723
+      ],
+      [
+       123.7163829,
+       13.1578547
+      ],
+      [
+       123.7163838,
+       13.1578557
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Purok 5B",
+    "status": "candidate",
+    "source": "Coordinates supplied by the project team (docs/purok_boundaries/purok_coordinates_as_supplied.txt); not an official survey.",
+    "supplied_geometry": "LineString",
+    "supplied_vertices": 9,
+    "closed_as_supplied": false,
+    "closure_gap_m": 0.08
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       123.7166773,
+       13.1566646
+      ],
+      [
+       123.7181329,
+       13.1572152
+      ],
+      [
+       123.7182816,
+       13.1569037
+      ],
+      [
+       123.7178099,
+       13.156479
+      ],
+      [
+       123.7175101,
+       13.1558873
+      ],
+      [
+       123.7167995,
+       13.1556774
+      ],
+      [
+       123.7167103,
+       13.1560447
+      ],
+      [
+       123.7168282,
+       13.1560709
+      ],
+      [
+       123.7166766,
+       13.1566645
+      ],
+      [
+       123.7166773,
+       13.1566646
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Purok 6",
+    "status": "candidate",
+    "source": "Coordinates supplied by the project team (docs/purok_boundaries/purok_coordinates_as_supplied.txt); not an official survey.",
+    "supplied_geometry": "LineString",
+    "supplied_vertices": 8,
+    "closed_as_supplied": true,
+    "closure_gap_m": 0.0
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       123.7179333,
+       13.1582918
+      ],
+      [
+       123.7190065,
+       13.1592337
+      ],
+      [
+       123.7188973,
+       13.1572898
+      ],
+      [
+       123.7182839,
+       13.1569201
+      ],
+      [
+       123.7181359,
+       13.1572278
+      ],
+      [
+       123.7181155,
+       13.1572191
+      ],
+      [
+       123.7180293,
+       13.1577445
+      ],
+      [
+       123.7179333,
+       13.1582918
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Purok 7",
+    "status": "candidate",
+    "source": "Coordinates supplied by the project team (docs/purok_boundaries/purok_coordinates_as_supplied.txt); not an official survey.",
+    "supplied_geometry": "LineString",
+    "supplied_vertices": 8,
+    "closed_as_supplied": false,
+    "closure_gap_m": 0.15
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       123.7149389,
+       13.1553126
+      ],
+      [
+       123.7168782,
+       13.1556325
+      ],
+      [
+       123.7174967,
+       13.1558187
+      ],
+      [
+       123.7174154,
+       13.1545031
+      ],
+      [
+       123.7175497,
+       13.1538849
+      ],
+      [
+       123.7153357,
+       13.1534149
+      ],
+      [
+       123.7151854,
+       13.154484
+      ],
+      [
+       123.7149403,
+       13.1553126
+      ],
+      [
+       123.7149389,
+       13.1553126
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}

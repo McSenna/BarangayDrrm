@@ -1,0 +1,22 @@
+ADD YOUR BARANGAY LOGO HERE
+============================
+
+To display Barangay Binitayan's official seal throughout the system (the public
+site header, and the top of the sidebar once logged in), just add a file
+named exactly:
+
+    logo.png
+
+into this folder (frontend/public/logo.png) — no code changes needed.
+
+Recommended:
+- Square image (e.g. 256x256px or 512x512px)
+- PNG with a transparent background works best
+- Keep the file size reasonably small (under ~500KB) for fast page loads
+
+Until you add this file, the system automatically shows a round placeholder
+with a shield instead — nothing will look broken either way, so you can add the real
+logo whenever it's ready.
+
+After adding the file, just refresh your browser (a hard refresh — Ctrl+Shift+R
+or Cmd+Shift+R — helps if the browser cached the "no logo" state).

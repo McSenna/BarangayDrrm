@@ -1,0 +1,58 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Timeline first</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}
+body{width:1440px;height:900px;overflow:hidden;font-family:"Plus Jakarta Sans",sans-serif;background:#F1F5F9;color:#1A2433;display:flex;font-size:13px}
+.side{width:252px;background:#16324F;color:#D3DEEA;flex:none}
+.tape{height:6px;background:repeating-linear-gradient(135deg,#F59E0B 0 12px,#16324F 12px 24px)}
+.brand{padding:18px 20px;font-weight:800;color:#fff;font-size:15px}
+.lab{padding:14px 20px 6px;font-size:11px;letter-spacing:.08em;color:#93A9C1;font-weight:700}
+.nav{margin:2px 12px;padding:11px 12px;border-radius:10px;font-weight:600}
+.nav.on{background:#fff;color:#16324F;font-weight:800}
+.main{flex:1;display:flex;flex-direction:column}
+.top{height:64px;background:#16324F;display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:0 28px;color:#fff}
+.chip{background:#F59E0B;color:#16324F;padding:6px 12px;border-radius:999px;font-weight:800}
+.page{padding:20px 28px;display:flex;flex-direction:column;gap:14px}
+.ph{display:flex;justify-content:space-between;align-items:center}
+h1{font-size:24px;font-weight:800;color:#16324F}
+.btn{padding:9px 14px;border-radius:10px;font-weight:700;border:1px solid #16324F;color:#16324F;background:#fff}
+.btn.p{background:#16324F;color:#fff}.btn.d{background:#DC2626;border-color:#DC2626;color:#fff}
+.row{display:flex;gap:8px;align-items:center}
+.sel{border:1px solid #64748B;border-radius:10px;padding:7px 12px;font-weight:600;background:#fff}
+.card{background:#fff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden}
+.tl{padding:16px 20px;height:290px;position:relative}
+.ct{font-weight:800;color:#16324F;font-size:15px}
+.phases{display:flex;margin:12px 0 0;height:22px;font-size:11px;font-weight:700}
+.phases div{display:flex;align-items:center;padding-left:8px}
+.bars{display:flex;align-items:flex-end;gap:6px;height:180px;border-bottom:1px solid #E2E8F0;position:relative}
+.bars i{flex:1;background:#16324F;border-radius:3px 3px 0 0}.bars i.a{background:#DC2626}
+.mark{position:absolute;top:0;bottom:0;border-left:2px dashed #DC2626}
+.mark span{position:absolute;top:-2px;left:6px;background:#DC2626;color:#fff;font-weight:700;font-size:11px;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.k{padding:14px 16px;border-top:4px solid #F59E0B}.k.g{border-top-color:#16A34A}.k.r{border-top-color:#DC2626}
+.kl{color:#475569;font-weight:600}.kv{font-size:28px;font-weight:800;color:#16324F}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.th{display:flex;justify-content:space-between;padding:12px 16px;font-weight:800;color:#16324F}
+table{width:100%;border-collapse:collapse}
+th{background:#F1F5F9;text-align:left;padding:8px 14px;color:#475569;font-size:12px}
+td{padding:9px 14px;border-top:1px solid #E2E8F0}
+.pill{padding:2px 9px;border-radius:999px;font-weight:700;font-size:12px}
+.crit{background:#DC2626;color:#fff}.hi{background:#FEF2F2;color:#B91C1C}.pen{background:#FEF3C7;color:#B45309}.ok{background:#DCFCE7;color:#166534}
+</style></head><body>
+<aside class="side"><div class="tape"></div><div class="brand">Barangay Binitayan DRRM</div>
+<div class="lab">OVERVIEW</div><div class="nav on">Dashboard</div>
+<div class="lab">OPERATIONS</div><div class="nav">Disaster Reports</div><div class="nav">Household Priorities</div><div class="nav">Hazards &amp; Map</div><div class="nav">Relief Allocation</div>
+<div class="lab">SYSTEM</div><div class="nav">SMS Notifications</div><div class="nav">Administration</div></aside>
+<div class="main"><div class="top"><span class="chip">Warning · Flood</span><span>Administrator ▾</span></div>
+<div class="page">
+<div class="ph"><h1>Dashboard</h1><div class="row"><span class="btn">Send SMS</span><span class="btn d">Issue hazard alert</span><span class="btn p">Record disaster report</span></div></div>
+<div class="row"><span class="sel">Last 30 days ▾</span><span class="sel">All Puroks ▾</span><span class="sel">Typhoon Kristine ▾</span></div>
+<div class="card tl"><div class="ct">Reports per day · Sep 16 – Oct 16</div>
+<div class="phases"><div style="width:58%;background:#F1F5F9;color:#475569">Preparedness</div><div style="width:24%;background:#FEF2F2;color:#B91C1C">Response</div><div style="width:18%;background:#DCFCE7;color:#166534">Recovery</div></div>
+<div class="bars"><i style="height:6%"></i><i style="height:10%"></i><i style="height:4%"></i><i style="height:8%"></i><i style="height:12%"></i><i style="height:6%"></i><i style="height:10%"></i><i style="height:14%"></i><i style="height:8%"></i><i style="height:6%"></i><i style="height:12%"></i><i style="height:9%"></i><i style="height:7%"></i><i style="height:10%"></i><i style="height:12%"></i><i style="height:8%"></i><i style="height:14%"></i><i style="height:12%"></i><i class="a" style="height:55%"></i><i class="a" style="height:88%"></i><i class="a" style="height:96%"></i><i class="a" style="height:70%"></i><i class="a" style="height:52%"></i><i class="a" style="height:40%"></i><i style="height:34%"></i><i style="height:26%"></i><i style="height:20%"></i><i style="height:16%"></i><i style="height:12%"></i><i style="height:10%"></i>
+<div class="mark" style="left:59%"><span>Flood warning issued · Oct 4</span></div></div></div>
+<div class="kpis"><div class="card k"><div class="kl">Reports to verify</div><div class="kv">4</div></div><div class="card k r"><div class="kl">Critical / High households</div><div class="kv">11</div></div><div class="card k"><div class="kl">Allocations not yet ready</div><div class="kv">6</div></div><div class="card k g"><div class="kl">Evacuation slots</div><div class="kv">186</div></div></div>
+<div class="two"><div class="card"><div class="th">Reports to verify <span class="sel">Severity ▾</span></div><table><tr><th>Ref.</th><th>Household</th><th>Severity</th></tr><tr><td>DR-2026-0142</td><td>Dela Cruz, Ramon</td><td><span class="pill crit">Critical</span></td></tr><tr><td>DR-2026-0141</td><td>Santos, Liza</td><td><span class="pill crit">Critical</span></td></tr><tr><td>DR-2026-0139</td><td>Reyes, Mario</td><td><span class="pill hi">High</span></td></tr></table></div>
+<div class="card"><div class="th">Allocations <span class="sel">Status ▾</span></div><table><tr><th>Household</th><th>Item</th><th>Status</th></tr><tr><td>Bautista, Ana</td><td>Rice 10 kg</td><td><span class="pill pen">Pending</span></td></tr><tr><td>Garcia, Jose</td><td>Hygiene kit</td><td><span class="pill pen">Pending</span></td></tr><tr><td>Lim, Carmen</td><td>Water 6 L</td><td><span class="pill ok">Approved</span></td></tr></table></div></div>
+</div></div></body></html>

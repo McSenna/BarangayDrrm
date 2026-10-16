@@ -1,0 +1,152 @@
+/* =========================================================
+   DESIGN TOKENS — Barangay Binitayan DRRM
+   The single source of every UI colour, radius, spacing step and
+   shadow. Tailwind's theme (tailwind.config.js) points at these
+   variables, so components never carry hex values of their own.
+   Map/Leaflet colours live in src/theme/mapTokens.js, because
+   Leaflet writes SVG attributes, which cannot read CSS variables.
+
+   Contrast rules (WCAG AA):
+   - Never put orange text on white. Use navy on an orange fill, or
+     --color-orange-ink on --color-orange-tint (4.5:1).
+   - Green text uses --color-green-ink (7.1:1 on white), never --color-green.
+   - Red text uses --color-red-ink: --color-red is only 4.4:1 on the red tint.
+   - --color-text-subtle is for WHITE surfaces only (4.8:1). On the slate
+     page background it drops to 4.3:1, so use --color-text-muted there.
+   ========================================================= */
+
+:root {
+  /* ---------- Core palette ---------- */
+  --color-navy: #16324F;        /* sidebar, header, primary buttons, headings */
+  --color-navy-deep: #0F2740;   /* recessed panels on navy (hotline card) */
+  --color-white: #FFFFFF;       /* cards, tables, report previews */
+  --color-slate: #F1F5F9;       /* page background, secondary panels */
+  --color-red: #DC2626;         /* critical alerts, urgent response actions */
+  --color-orange: #F59E0B;      /* warnings, pending, attention required */
+  --color-green: #16A34A;       /* verified, completed, available (fills only) */
+
+  /* ---------- Status tints and text-on-tint ---------- */
+  --color-red-tint: #FEF2F2;
+  --color-red-border: #FECACA;
+  --color-red-ink: #B91C1C;     /* red text: 5.9:1 on red tint, 6.5:1 on white */
+  --color-orange-tint: #FEF3C7;
+  --color-orange-ink: #B45309;  /* only on the orange tint */
+  --color-green-tint: #DCFCE7;
+  --color-green-ink: #166534;
+
+  /* ---------- Text and lines ---------- */
+  --color-text: #1A2433;
+  --color-text-muted: #475569;  /* 6.9:1 on slate, 7.6:1 on white */
+  --color-text-subtle: #64748B; /* white surfaces only */
+  --color-border: #E2E8F0;
+  --color-control: var(--color-text-subtle); /* input edges: 4.8:1 on white (WCAG 1.4.11) */
+
+  /* ---------- Sidebar (on navy) ---------- */
+  --color-sidebar-text: #D3DEEA;
+  --color-sidebar-label: #93A9C1;  /* 5.4:1 on navy */
+  --color-sidebar-divider: #24486D;
+  --color-sidebar-hover: rgba(255, 255, 255, 0.07);
+
+  /* ---------- On-navy surfaces (public site header, bands, footer) ---------- */
+  --color-on-navy: var(--color-sidebar-text);        /* body text on navy */
+  --color-on-navy-muted: #A9BBCF;                    /* secondary text: 6.6:1 on navy, 7.7:1 on navy-deep */
+  --color-on-navy-label: var(--color-sidebar-label);
+  --color-navy-line: var(--color-sidebar-divider);   /* hairlines / outlined buttons on navy */
+  --color-navy-line-strong: #2C5378;
+
+  /* ---------- Extra status shades (public landing) ---------- */
+  --color-red-soft: #FEE2E2;     /* hazard zone cards */
+  --color-orange-deep: #92400E;  /* strongest orange text, on orange tint only */
+  --color-highlight: #FCD9A0;    /* marker highlight behind hero text */
+
+  /* ---------- Overlays and focus ---------- */
+  --color-overlay: rgba(22, 50, 79, 0.55);
+  --color-focus: var(--color-navy);
+  --color-focus-on-dark: var(--color-orange);
+  --color-selection: var(--color-orange-tint);
+
+  /* ---------- Typography ---------- */
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* ---------- Radius ---------- */
+  --radius-card: 16px;
+  --radius-control: 10px;  /* buttons, nav items, inputs */
+  --radius-tile: 10px;     /* icon tiles */
+  --radius-pill: 999px;
+  /* Public landing uses slightly larger shapes for its bigger type. */
+  --radius-card-lg: 20px;
+  --radius-tile-lg: 14px;
+  --radius-control-lg: 12px;
+
+  /* ---------- Spacing (4px base) ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --page-padding: 28px;
+  --grid-gap: 16px;
+  --gutter: 48px;          /* public site side gutters (20px under 640px) */
+  --section-y: 64px;       /* public site section padding (48px under 640px) */
+
+  /* ---------- Elevation (flat) ---------- */
+  --shadow-card: 0 1px 2px rgba(22, 50, 79, 0.05);
+  --shadow-popover: 0 12px 32px -8px rgba(22, 50, 79, 0.22), 0 1px 2px rgba(22, 50, 79, 0.05); /* menus only */
+
+  /* ---------- Motion ---------- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ---------- Shell dimensions ---------- */
+  --sidebar-width: 252px;
+  --header-height: 64px;
+  --content-max: 1280px;
+  --stripe-height: 6px;
+
+  /* ---------- Hazard tape (the only stripes in the system) ---------- */
+  --hazard-tape: repeating-linear-gradient(
+    135deg,
+    var(--color-orange) 0 12px,
+    var(--color-navy) 12px 24px
+  );
+  --hazard-tape-red: repeating-linear-gradient(
+    135deg,
+    var(--color-red) 0 12px,
+    var(--color-white) 12px 24px
+  );
+  --hazard-tape-red-navy: repeating-linear-gradient(
+    135deg,
+    var(--color-red) 0 12px,
+    var(--color-navy) 12px 24px
+  );
+
+  /* Soft offset shadow under the barangay outline on the public map. */
+  --shadow-map-outline: drop-shadow(4px 7px 6px rgba(22, 50, 79, 0.28));
+
+  /* ---------- Login dialog (features/auth) ---------- */
+  --color-navy-hover: #0E2236;                       /* primary button hover in the dialog */
+  --color-dialog-scrim: rgba(15, 39, 64, 0.45);      /* navy-deep at 45%, with a 6px blur */
+  --color-dialog-scrim-solid: rgba(15, 39, 64, 0.7); /* when backdrop-filter is unsupported */
+  --color-focus-halo: rgba(245, 158, 11, 0.35);      /* orange halo around a focused input */
+  --shadow-dialog: 0 32px 64px -16px rgba(15, 39, 64, 0.45);
+
+  /* ---------- GIS map (staff Barangay Map) ----------
+     Mirrors src/theme/mapTokens.js ZONE_STYLES / MAP_COLORS so the legend,
+     list swatches and the Leaflet polygons agree. */
+  --color-zone-flood: #EF4444;    /* designated flood-prone Purok fill (35% on the map) */
+  --color-zone-neutral: #94A3B8;  /* Purok not currently designated (14% on the map) */
+  --color-map-area: #1D4ED8;      /* recorded affected area */
+  --shadow-marker: 0 1px 3px rgba(22, 50, 79, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.6);
+  --shadow-gis-outline: drop-shadow(0 2px 3px rgba(22, 50, 79, 0.3));
+
+  /* ---------- Legacy aliases ----------
+     Referenced by inline styles in older pages
+     (style={{ color: "var(--color-ink-soft)" }}). Kept so those pages pick up
+     the new palette; new code uses the names above. */
+  --color-ink: var(--color-text);
+  --color-ink-soft: var(--color-text-muted);
+  --color-success: var(--color-green-ink);
+  --color-danger: var(--color-red-ink);
+}

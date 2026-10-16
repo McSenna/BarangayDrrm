@@ -1,0 +1,56 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Situation | Response</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}
+body{width:1440px;height:900px;overflow:hidden;font-family:"Plus Jakarta Sans",sans-serif;background:#F1F5F9;color:#1A2433;display:flex;font-size:13px}
+.side{width:252px;background:#16324F;color:#D3DEEA;flex:none}
+.tape{height:6px;background:repeating-linear-gradient(135deg,#F59E0B 0 12px,#16324F 12px 24px)}
+.brand{padding:18px 20px;font-weight:800;color:#fff;font-size:15px}
+.lab{padding:14px 20px 6px;font-size:11px;letter-spacing:.08em;color:#93A9C1;font-weight:700}
+.nav{margin:2px 12px;padding:11px 12px;border-radius:10px;font-weight:600}
+.nav.on{background:#fff;color:#16324F;font-weight:800}
+.main{flex:1;display:flex;flex-direction:column}
+.top{height:64px;background:#16324F;display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:0 28px;color:#fff}
+.chip{background:#F59E0B;color:#16324F;padding:6px 12px;border-radius:999px;font-weight:800}
+.page{padding:20px 28px;display:flex;flex-direction:column;gap:14px}
+.ph{display:flex;justify-content:space-between;align-items:center}
+h1{font-size:24px;font-weight:800;color:#16324F}
+.btn{padding:9px 14px;border-radius:10px;font-weight:700;border:1px solid #16324F;color:#16324F;background:#fff}
+.btn.p{background:#16324F;color:#fff}.btn.d{background:#DC2626;border-color:#DC2626;color:#fff}
+.row{display:flex;gap:8px;align-items:center}
+.sel{border:1px solid #64748B;border-radius:10px;padding:7px 12px;font-weight:600;background:#fff}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.col{display:flex;flex-direction:column;gap:12px}
+h2{font-size:13px;letter-spacing:.08em;font-weight:800;color:#16324F;border-bottom:2px solid #16324F;padding-bottom:6px}
+.card{background:#fff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden}
+.ks{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.k{padding:12px 14px;border-top:4px solid #F59E0B}.k.g{border-top-color:#16A34A}.k.r{border-top-color:#DC2626}.k.n{border-top-color:#16324F}
+.kl{color:#475569;font-weight:600;font-size:12px}.kv{font-size:26px;font-weight:800;color:#16324F}
+.ch{padding:14px 16px;height:190px}.ct{font-weight:800;color:#16324F;margin-bottom:10px}
+.hb div{display:flex;align-items:center;gap:8px;margin:9px 0}
+.hb span{width:70px;color:#475569;font-weight:600;font-size:12px}.hb b{height:16px;border-radius:4px}
+table{width:100%;border-collapse:collapse}
+th{background:#F1F5F9;text-align:left;padding:8px 14px;color:#475569;font-size:12px}
+td{padding:9px 14px;border-top:1px solid #E2E8F0}
+.pill{padding:2px 9px;border-radius:999px;font-weight:700;font-size:12px}
+.crit{background:#DC2626;color:#fff}.hi{background:#FEF2F2;color:#B91C1C}.pen{background:#FEF3C7;color:#B45309}.ok{background:#DCFCE7;color:#166534}
+</style></head><body>
+<aside class="side"><div class="tape"></div><div class="brand">Barangay Binitayan DRRM</div>
+<div class="lab">OVERVIEW</div><div class="nav on">Dashboard</div>
+<div class="lab">OPERATIONS</div><div class="nav">Disaster Reports</div><div class="nav">Household Priorities</div><div class="nav">Hazards &amp; Map</div><div class="nav">Relief Allocation</div>
+<div class="lab">SYSTEM</div><div class="nav">SMS Notifications</div><div class="nav">Administration</div></aside>
+<div class="main"><div class="top"><span class="chip">Warning · Flood</span><span>Administrator ▾</span></div>
+<div class="page">
+<div class="ph"><h1>Dashboard</h1><div class="row"><span class="btn">Send SMS</span><span class="btn d">Issue hazard alert</span><span class="btn p">Record disaster report</span></div></div>
+<div class="row"><span class="sel">Last 30 days ▾</span><span class="sel">All Puroks ▾</span><span class="sel">Typhoon Kristine ▾</span></div>
+<div class="cols">
+<div class="col"><h2>SITUATION</h2>
+<div class="ks"><div class="card k r"><div class="kl">Affected households</div><div class="kv">27</div></div><div class="card k"><div class="kl">Reports to verify</div><div class="kv">4</div></div><div class="card k g"><div class="kl">Evacuees</div><div class="kv">114</div></div></div>
+<div class="card ch"><div class="ct">Incidents by severity</div><div class="hb"><div><span>Critical</span><b style="width:30%;background:#DC2626"></b>6</div><div><span>High</span><b style="width:45%;background:#FECACA"></b>9</div><div><span>Medium</span><b style="width:35%;background:#F59E0B"></b>7</div><div><span>Low</span><b style="width:20%;background:#16324F"></b>4</div></div></div>
+<div class="card"><table><tr><th>Ref.</th><th>Household</th><th>Purok</th><th>Severity</th></tr><tr><td>DR-2026-0142</td><td>Dela Cruz, Ramon</td><td>2</td><td><span class="pill crit">Critical</span></td></tr><tr><td>DR-2026-0141</td><td>Santos, Liza</td><td>1</td><td><span class="pill crit">Critical</span></td></tr><tr><td>DR-2026-0139</td><td>Reyes, Mario</td><td>4</td><td><span class="pill hi">High</span></td></tr></table></div></div>
+<div class="col"><h2>RESPONSE</h2>
+<div class="ks"><div class="card k"><div class="kl">Allocations not ready</div><div class="kv">6</div></div><div class="card k n"><div class="kl">Ready to distribute</div><div class="kv">5</div></div><div class="card k r"><div class="kl">Items short</div><div class="kv">2</div></div></div>
+<div class="card ch"><div class="ct">Relief pipeline</div><div class="hb"><div><span>Pending</span><b style="width:25%;background:#F59E0B"></b>4</div><div><span>Approved</span><b style="width:14%;background:#16324F"></b>2</div><div><span>Ready</span><b style="width:30%;background:#16324F"></b>5</div><div><span>Distributed</span><b style="width:80%;background:#16A34A"></b>18</div></div></div>
+<div class="card"><table><tr><th>Household</th><th>Item</th><th>Status</th></tr><tr><td>Bautista, Ana</td><td>Rice 10 kg</td><td><span class="pill pen">Pending</span></td></tr><tr><td>Garcia, Jose</td><td>Hygiene kit</td><td><span class="pill pen">Pending</span></td></tr><tr><td>Lim, Carmen</td><td>Water 6 L</td><td><span class="pill ok">Approved</span></td></tr></table></div></div>
+</div></div></div></body></html>

@@ -122,6 +122,17 @@ Same tokens and components as the dashboard, with slightly larger shapes (`--rad
 - **Key bar:** the legend sits along the bottom edge of the map frame, never over the map.
 - **Assigning a location:** orange tone band on the panel (`card-band-orange`), navy banner over the map, orange preview tile, ghost of the old location, inline confirm before saving.
 
+## Barangay alerts (active alerts on the maps)
+
+`features/alerts/` (styles in `alerts.css`), admin page `pages/admin/HazardAlerts.jsx` ("Barangay Alerts"), data `hazards/alerts/get_active_alerts.php` (public, resident-facing fields), lifecycle `backend/lib/barangay_alerts.php`.
+
+- **Lifecycle:** Draft → Active → Inactive (final; kept with its history, never deleted). Activation sends nothing by SMS; nothing expires by itself.
+- **Severity scale (alerts only):** Advisory amber (`--color-sev-advisory*`, Info icon), Warning orange (`--color-sev-warning*`, TriangleAlert), Critical red (Siren). `SeverityBadge` always shows icon + label; Critical is the solid pill, the others tint + ink. The header chip gains an amber Advisory state.
+- **"Active Barangay Alerts" panel:** above the Home map and the staff Barangay Map. 4px tone band in the highest active severity; count; every alert listed highest severity first with area, activation time (Asia/Manila) and "What to do". Selecting one expands its details and emphasises its area. Empty: "No active barangay alerts." plus a line that this does not mean an area is safe. A failed refresh keeps the last alerts with an orange-tint "may be outdated" line; it never shows the empty state.
+- **Map layer:** its own pane (440: above the boundary, below Purok labels and household markers), non-interactive. A dark casing under a severity-coloured outline (Critical solid, Warning long dash, Advisory short dash) with a light tint; the selected alert's areas thicken, others dim. Whole Purok boundaries or the barangay boundary only; areas without verified geometry are listed as text, never drawn. The permanent flood-prone fill is a separate layer and never changes with alerts.
+- **Home map:** zoom buttons (44px), double-click and pinch zoom keep the centre; no dragging, no wheel zoom (the wheel scrolls the page). The legend sits under the map.
+- **Refresh:** about every 15 s (`VITE_ALERT_POLL_MS`), on tab return, and at once in every tab of the browser where an administrator changed an alert.
+
 ## Accessibility conventions
 
 - Landmarks: `nav`, `header`, `main#main` with a skip link, and `section aria-labelledby` for each section.

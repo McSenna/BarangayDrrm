@@ -9,8 +9,8 @@ $sms_env = function ($key) {
 };
 
 return [
-    'SMS_ENABLED' => filter_var($sms_env('TEXTBEE_SMS_ENABLED') ?? false, FILTER_VALIDATE_BOOLEAN),  // or set to true once you have a textbee.dev API key + device configured
-    'API_KEY' => (string) ($sms_env('TEXTBEE_API_KEY') ?? ''),    
-    'DEVICE_ID' => (string) ($sms_env('TEXTBEE_DEVICE_ID') ?? ''), // or paste your textbee.dev device ID here
-    'API_BASE_URL' => (string) ($sms_env('TEXTBEE_API_BASE_URL') ?? 'https://api.textbee.dev/api/v1/gateway'),
+    'SMS_ENABLED' => filter_var($sms_env('SEMAPHORE_SMS_ENABLED') ?? false, FILTER_VALIDATE_BOOLEAN),
+    'API_KEY' => (string) ($sms_env('SEMAPHORE_API_KEY') ?? ''),
+    'SENDER_NAME' => (string) ($sms_env('SEMAPHORE_SENDER_NAME') ?? ''),
+    'API_BASE_URL' => 'https://api.semaphore.co/api/v4/messages',
 ];

@@ -12,7 +12,7 @@ export const WEATHER_MAX_AGE_HOURS = 24;
 /** Stored alert status -> page alert level. */
 export function toAlertLevel(status) {
   if (status === "Critical") return "critical";
-  if (status === "Warning" || status === "Alert") return "warning";
+  if (status === "Warning" || status === "Advisory" || status === "Alert") return "warning";
   return "normal";
 }
 
@@ -26,7 +26,17 @@ export function toIncidentType(hazardType = "") {
   return "other";
 }
 
-const SEVERITY = { Critical: "critical", Warning: "high", Alert: "medium", Normal: "low" };
+const SEVERITY = { Critical: "critical", Warning: "high", Advisory: "medium", Alert: "medium", Normal: "low" };
+
+/** Title of the alert card when no barangay alert is active: neutral, never "all clear" or "safe". */
+export const NO_ALERTS_TITLE = "No active barangay alerts";
+
+/** "Purok 1, Purok 3", "Barangay-wide", or an older single stored value. */
+function incidentArea(a) {
+  if (a.scope === "barangay") return "Barangay-wide";
+  if (Array.isArray(a.puroks) && a.puroks.length) return a.puroks.join(", ");
+  return a.affected_purok ? purokLabel(a.affected_purok) : "Barangay-wide";
+}
 
 /** Text with one item per line -> trimmed, non-empty lines. */
 export function splitLines(text) {
@@ -42,12 +52,12 @@ export function mapHazardStatus(raw, settings) {
   const level = toAlertLevel(statusLabel);
   const incidents = (raw?.active_alerts || []).map((a) => ({
     id: String(a.alert_id),
-    purok: a.affected_purok ? purokLabel(a.affected_purok) : "Barangay-wide",
+    purok: incidentArea(a),
     purokRaw: a.affected_purok || null,
     type: toIncidentType(a.hazard_type),
     title: a.hazard_type || "Hazard",
     description: a.title || "",
-    severity: SEVERITY[a.status] || "medium",
+    severity: SEVERITY[a.severity || a.status] || "medium",
   }));
   const stepsKey = level === "critical" ? "public_advisory_steps"
     : level === "warning" ? "public_advisory_steps_warning"

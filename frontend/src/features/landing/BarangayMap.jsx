@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from "react";
-import { AttributionControl, GeoJSON, MapContainer, Marker, Pane, TileLayer, Tooltip, useMap } from "react-leaflet";
+import { useEffect } from "react";
+import { AttributionControl, GeoJSON, MapContainer, Marker, Pane, TileLayer, ZoomControl, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import boundary from "../../data/binitayanBoundary.json";
@@ -8,8 +8,8 @@ import { FLOOD_EXCLUSIONS, floodZoneShape } from "../../utils/floodZoneGeometry.
 import { floodDesignation } from "../../config/floodZones.js";
 import { getGeoJsonBounds } from "../../utils/geoBounds.js";
 import { labelPoint } from "../../utils/polygonLabel.js";
-import { purokKey } from "../../utils/purokLabel.js";
 import { MAP_COLORS, ZONE_STYLES } from "../../theme/mapTokens.js";
+import AlertAreaLayer from "../alerts/AlertAreaLayer.jsx";
 
 /**
  * Public "Barangay Binitayan Flood-Prone Zone Map" on the Home page.
@@ -19,18 +19,22 @@ import { MAP_COLORS, ZONE_STYLES } from "../../theme/mapTokens.js";
  * CSS on the silhouette pane, see .lm-silhouette) → Purok areas (Puroks 1–4 red = designated flood-prone,
  * drawn from the cut-out shapes in utils/floodZoneGeometry.js so the Daraga
  * Public Cemetery footprint is never red; other Puroks neutral) → excluded
- * area outline → barangay boundary → Purok labels → incident pins.
+ * area outline → barangay boundary → ACTIVE ALERT AREAS (Phase 33, their own
+ * pane, removed when an alert is turned off; the flood designation below is
+ * permanent and never changes with alerts) → Purok labels.
  *
- * A fixed picture of the whole barangay: no panning, zooming, controls or
- * popups. The view is re-fitted whenever the map's box changes size. No
- * household data is shown here: this page is public.
+ * Locked to the barangay: no dragging or keyboard panning. Zoom (+/− buttons,
+ * double-click, pinch) keeps the centre, the whole-barangay view is the
+ * minimum zoom, and zooming fully out re-centres. The wheel scrolls the page,
+ * not the map. No household data is shown here: this page is public.
  */
 
 const BOUNDS = L.latLngBounds(getGeoJsonBounds(boundary));
 // Room around the silhouette for its shadow, so the box never clips it. The
 // shadow falls mostly downward, so the sides and top need less than the bottom.
 const FIT = { paddingTopLeft: [14, 14], paddingBottomRight: [14, 30], animate: false };
-const Z = { silhouette: 200, zones: 410, excluded: 420, outline: 430, labels: 450 };
+const Z = { silhouette: 200, zones: 410, excluded: 420, outline: 430, alerts: 440, labels: 450 };
+const MAX_ZOOM = 18;
 
 function outerRings(fc) {
   const rings = [];
@@ -60,8 +64,6 @@ const PUROKS = PUROK_BOUNDARIES.items
       label: shape.label || labelPoint(it.feature.geometry.coordinates[0]),
     };
   });
-const PUROK_BY_KEY = new Map(PUROKS.map((p) => [p.name, p]));
-const BARANGAY_CENTRE = [BOUNDS.getCenter().lat, BOUNDS.getCenter().lng];
 
 const labelIcon = (p) =>
   L.divIcon({
@@ -73,16 +75,6 @@ const labelIcon = (p) =>
 const LABEL_ICONS = new Map(PUROKS.map((p) => [p.name, labelIcon(p)]));
 const excludedIcon = (name) =>
   L.divIcon({ className: "lm-label-icon", html: `<span class="lm-excluded-label">${name}</span>`, iconSize: [0, 0], iconAnchor: [0, 0] });
-const pinIcon = L.divIcon({ className: "", html: '<span class="lm-pin" aria-hidden="true"></span>', iconSize: [26, 26], iconAnchor: [13, 24], tooltipAnchor: [0, -22] });
-
-/** Rough centre of a feature (mean of its outer ring), as [lat, lng]. */
-function centreOf(feature) {
-  const g = feature.geometry;
-  const ring = g.type === "Polygon" ? g.coordinates[0] : g.type === "MultiPolygon" ? g.coordinates[0][0] : [];
-  if (!ring.length) return null;
-  const [sx, sy] = ring.reduce(([x, y], [lng, lat]) => [x + lng, y + lat], [0, 0]);
-  return [sy / ring.length, sx / ring.length];
-}
 
 /** The barangay outline as a CSS clip-path in the map's layer pixels. */
 function silhouetteClip(map) {
@@ -111,45 +103,50 @@ function SilhouetteClip() {
   return null;
 }
 
-/** Fits the whole barangay into the map's box, again whenever the box resizes. */
-function FixedView() {
+/**
+ * The whole barangay is the minimum zoom. Zooming keeps the centre (no pan); at the minimum the view is
+ * re-fitted, so it always returns to the whole barangay. Re-fitted when the box resizes while zoomed out.
+ */
+function LockedView() {
   const map = useMap();
   useEffect(() => {
-    const fit = () => map.fitBounds(BOUNDS, FIT);
+    const atMin = () => map.getZoom() <= map.getMinZoom() + 0.01;
+    const fit = () => {
+      map.setMinZoom(0);
+      map.fitBounds(BOUNDS, FIT);
+      map.setMinZoom(map.getZoom());
+    };
     fit();
-    map.on("resize", fit);
-    return () => map.off("resize", fit);
+    const onZoomEnd = () => { if (atMin()) map.fitBounds(BOUNDS, FIT); };
+    const onResize = () => {
+      const zoom = map.getZoom();
+      const wasMin = atMin();
+      fit();
+      if (!wasMin && zoom > map.getMinZoom()) map.setZoom(zoom, { animate: false });
+    };
+    map.on("zoomend", onZoomEnd);
+    map.on("resize", onResize);
+    return () => { map.off("zoomend", onZoomEnd); map.off("resize", onResize); };
   }, [map]);
   return null;
 }
 
-export default function BarangayMap({ incidents = [] }) {
-  const placed = useMemo(() => {
-    const seen = new Map();
-    return incidents.map((i) => {
-      const p = i.purokRaw ? PUROK_BY_KEY.get(purokKey(i.purokRaw)) : null;
-      const base = (p && p.label) || (p && centreOf(p.feature)) || BARANGAY_CENTRE;
-      const k = base.join(",");
-      const n = seen.get(k) || 0;
-      seen.set(k, n + 1);
-      // Several incidents in one Purok: fan the pins out slightly so each stays clickable.
-      return { ...i, pos: [base[0] - 0.00025 - n * 0.0006, base[1] + n * 0.0008] };
-    });
-  }, [incidents]);
-
+/** alerts: normalized active alerts (features/alerts/alertModel.js); selectedId: the alert to emphasise. */
+export default function BarangayMap({ alerts = [], selectedId = null }) {
   return (
     <div className="lm">
       <MapContainer
         bounds={BOUNDS}
         boundsOptions={FIT}
-        maxZoom={19}
+        maxZoom={MAX_ZOOM}
         zoomSnap={0}
+        zoomDelta={1}
         dragging={false}
         keyboard={false}
         boxZoom={false}
         scrollWheelZoom={false}
-        doubleClickZoom={false}
-        touchZoom={false}
+        doubleClickZoom="center"
+        touchZoom="center"
         zoomControl={false}
         attributionControl={false}
         className="lm-map"
@@ -167,7 +164,8 @@ export default function BarangayMap({ incidents = [] }) {
         </Pane>
         {/* No "Leaflet" prefix; the OpenStreetMap credit covers the tiles and the cemetery outline (ODbL). */}
         <AttributionControl position="bottomright" prefix={false} />
-        <FixedView />
+        <LockedView />
+        <ZoomControl position="topright" zoomInTitle="Zoom in" zoomOutTitle="Zoom out" />
 
         <Pane name="lm-zones" style={{ zIndex: Z.zones }}>
           {PUROKS.map((p) => (
@@ -185,6 +183,8 @@ export default function BarangayMap({ incidents = [] }) {
           <GeoJSON data={boundary} style={() => BOUNDARY_STYLE} interactive={false} />
         </Pane>
 
+        <AlertAreaLayer alerts={alerts} selectedId={selectedId} pane="lm-alerts" zIndex={Z.alerts} />
+
         <Pane name="lm-labels" style={{ zIndex: Z.labels }}>
           {PUROKS.filter((p) => p.label).map((p) => (
             <Marker key={`label-${p.name}`} position={p.label} icon={LABEL_ICONS.get(p.name)} interactive={false} keyboard={false} />
@@ -194,11 +194,6 @@ export default function BarangayMap({ incidents = [] }) {
           ))}
         </Pane>
 
-        {placed.map((p) => (
-          <Marker key={p.id} position={p.pos} icon={pinIcon} title={`${p.purok} · ${p.title}`} alt="" keyboard={false}>
-            <Tooltip direction="top" className="lm-pin-label">{`${p.purok} · ${p.title}`}</Tooltip>
-          </Marker>
-        ))}
       </MapContainer>
     </div>
   );

@@ -15,7 +15,8 @@ $conn = $database->connect();
 
 $sources = [
     'households' => "SELECT purok AS value, COUNT(*) AS cnt FROM households GROUP BY purok",
-    'hazard_alerts' => "SELECT affected_purok AS value, COUNT(*) AS cnt FROM hazard_alerts WHERE affected_purok IS NOT NULL AND affected_purok <> '' GROUP BY affected_purok",
+    'hazard_alerts' => "SELECT affected_purok AS value, COUNT(*) AS cnt FROM hazard_alerts ha WHERE affected_purok IS NOT NULL AND affected_purok <> ''
+        AND NOT EXISTS (SELECT 1 FROM hazard_alert_puroks hp WHERE hp.alert_id = ha.alert_id) GROUP BY affected_purok", // Phase 33 alerts store standard Puroks separately
     'evacuation_centers' => "SELECT purok AS value, COUNT(*) AS cnt FROM evacuation_centers GROUP BY purok",
 ];
 

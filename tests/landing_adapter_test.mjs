@@ -53,5 +53,15 @@ ok(m.mapWeather({ log_date: "2026-10-16", log_time: "08:00:00", temperature: "27
 ok(!m.mapWeather({ log_date: "2026-09-30", log_time: "09:00:00" }, now).isRecent, "16-day-old reading is not 'now'");
 ok(m.mapWeather(null, now) === null, "no reading -> null");
 
+// Phase 33 barangay alerts: Advisory severity, several Puroks per alert, neutral empty-state copy.
+ok(m.toAlertLevel("Advisory") === "warning", "Advisory -> warning (never 'normal' while an alert is active)");
+const multi = m.mapHazardStatus(raw("Advisory", [
+  { alert_id: 7, hazard_type: "Fire", status: "Advisory", severity: "Advisory", title: "Grass fire", affected_purok: "Purok 1, Purok 3", scope: "puroks", puroks: ["Purok 1", "Purok 3"] },
+  { alert_id: 8, hazard_type: "Earthquake", status: "Warning", severity: "Warning", title: "Aftershocks", affected_purok: null, scope: "barangay", puroks: [] },
+]), settings);
+ok(multi.level === "warning" && multi.incidents[0].purok === "Purok 1, Purok 3" && multi.incidents[1].purok === "Barangay-wide", "several Puroks listed; barangay-wide scope");
+ok(multi.incidents[0].type === "fire" && multi.incidents[0].severity === "medium" && multi.incidents[1].severity === "high", "Advisory -> medium, Warning -> high");
+ok(m.NO_ALERTS_TITLE === "No active barangay alerts" && !/clear|safe/i.test(m.NO_ALERTS_TITLE), "no-alert title is neutral (not 'all clear' or 'safe')");
+
 console.log(`\nLANDING ADAPTER TEST: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

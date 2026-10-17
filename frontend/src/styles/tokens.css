@@ -142,6 +142,27 @@
   --shadow-marker: 0 1px 3px rgba(22, 50, 79, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.6);
   --shadow-gis-outline: drop-shadow(0 2px 3px rgba(22, 50, 79, 0.3));
 
+  /* ---------- Barangay alert severity (Phase 33) ----------
+     Advisory amber, Warning orange, Critical red — always with a label and an
+     icon. `-line` mirrors ALERT_COLORS in src/theme/mapTokens.js (map outlines
+     and legend swatches). Pairs: navy on the fill, `-ink` on the `-tint` (AA). */
+  --color-sev-advisory: #FACC15;       /* fill, navy text 9.6:1 */
+  --color-sev-advisory-tint: #FEF9C3;
+  --color-sev-advisory-ink: #854D0E;   /* 6.5:1 on the tint */
+  --color-sev-advisory-border: #FDE047;
+  --color-sev-advisory-line: #EAB308;
+  --color-sev-warning: #F97316;        /* fill, navy text 4.6:1 */
+  --color-sev-warning-tint: #FFEDD5;
+  --color-sev-warning-ink: #9A3412;    /* 6.5:1 on the tint */
+  --color-sev-warning-border: #FDBA74;
+  --color-sev-warning-line: #EA580C;
+  --color-sev-critical: var(--color-red);
+  --color-sev-critical-tint: var(--color-red-tint);
+  --color-sev-critical-ink: var(--color-red-ink);
+  --color-sev-critical-border: var(--color-red-border);
+  --color-sev-critical-line: var(--color-red);
+  --color-map-casing: var(--color-text); /* dark edge under every alert outline */
+
   /* ---------- Legacy aliases ----------
      Referenced by inline styles in older pages
      (style={{ color: "var(--color-ink-soft)" }}). Kept so those pages pick up

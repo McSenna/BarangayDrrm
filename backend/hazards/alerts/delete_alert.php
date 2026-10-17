@@ -1,23 +1,17 @@
 <?php
+/**
+ * Delete an alert DRAFT that was never activated. Active and turned-off alerts are records and are never deleted
+ * (Phase 33); turn an active alert off instead. Admin only.
+ */
 require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../lib/barangay_alerts.php';
 
 require_login(['admin']);
-
-$data = json_decode(file_get_contents("php://input"), true);
-$alert_id = intval($data['alert_id'] ?? $_GET['alert_id'] ?? 0);
-
-if ($alert_id <= 0) {
-    http_response_code(400);
-    echo json_encode(["success" => false, "message" => "alert_id is required."]);
-    exit();
-}
-
-$database = new Database();
-$conn = $database->connect();
-
-$conn->prepare("DELETE FROM hazard_alerts WHERE alert_id = :alert_id")->execute([':alert_id' => $alert_id]);
-
-log_action($conn, "Hazard alert deleted", "alert_id: $alert_id");
-
-echo json_encode(["success" => true, "message" => "Hazard alert deleted."]);
+ba_respond(function () {
+    ba_require_method(['POST', 'DELETE']);
+    $data = ba_json_body(['alert_id']);
+    $conn = (new Database())->connect();
+    ba_delete_draft($conn, ba_alert_id($data['alert_id'] ?? null), intval($_SESSION['user_id']));
+    return [200, ['message' => 'Draft deleted.']];
+});

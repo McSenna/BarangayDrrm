@@ -1,13 +1,4 @@
 <?php
-/**
- * Phase 20 — safe retry of ONE SMS log row whose status is Failed or Not Configured.
- *
- * The same row is updated (status, error, provider response, attempts,
- * last_attempt_at) — no new row is created, so an event can never end up with
- * two "Sent" logs. The row is locked (SELECT ... FOR UPDATE) for the duration,
- * so two administrators clicking Retry at the same time cannot both send it.
- * A row that is already Sent is refused.
- */
 require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/sms_helper.php';
@@ -33,7 +24,7 @@ if ($sms_id <= 0) {
 $state = sms_config_state();
 if (!$state['ready']) {
     http_response_code(409);
-    echo json_encode(["success" => false, "message" => SMS_DISABLED_MESSAGE . " Enable TextBee first; nothing was sent."]);
+    echo json_encode(["success" => false, "message" => SMS_DISABLED_MESSAGE . " Enable Semaphore first; nothing was sent."]);
     exit();
 }
 
@@ -64,7 +55,7 @@ try {
         exit();
     }
 
-    $result = textbee_send($state, [$row['recipient_number']], $row['message'], 15);
+    $result = semaphore_send($state, [$row['recipient_number']], $row['message'], 15);
     $status = $result['ok'] ? sms_accepted_status($conn) : 'Failed';
     $p25 = sms_logs_phase25($conn);
     $update = $conn->prepare($phase20
@@ -91,5 +82,5 @@ echo json_encode([
     "status" => $status,
     "message" => $status !== 'Failed'
         ? "SMS accepted by the gateway (delivery to the phone is not confirmed). The log entry was updated."
-        : "The SMS could not be sent again. The log entry still shows \"Failed\" with the provider's reason.",
+        : sms_failure_message($result['error']),
 ]);

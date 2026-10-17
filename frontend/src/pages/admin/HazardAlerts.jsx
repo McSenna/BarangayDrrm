@@ -1,246 +1,144 @@
-import { useEffect, useState } from "react";
-import { useAutoRefresh } from "../../hooks/usePolling.js";
-import { purokLabel } from "../../utils/purokLabel.js";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { History, MessageSquareText, Pencil, Plus, Power, Send, Trash2 } from "lucide-react";
+import PageHeader from "../../components/ui/PageHeader.jsx";
+import Button from "../../components/ui/Button.jsx";
 import DataTable from "../../components/DataTable.jsx";
-import Modal from "../../components/Modal.jsx";
-import PurokSelect from "../../components/PurokSelect.jsx";
-import { getHazardAlerts, addHazardAlert, updateHazardStatus, resolveHazardAlert, deleteHazardAlert } from "../../services/api.jsx";
+import usePolling from "../../hooks/usePolling.js";
+import SeverityBadge from "../../features/alerts/SeverityBadge.jsx";
+import { announceAlertsChanged, areaLabel, formatManila, normalizeAlert } from "../../features/alerts/alertModel.js";
+import "../../features/alerts/alerts.css";
+import { activateAlert, createAlert, deactivateAlert, deleteAlertDraft, getHazardAlerts, updateAlert } from "../../services/api.jsx";
+import AlertForm from "./alerts/AlertForm.jsx";
+import { ActivateDialog, DeleteDraftDialog, HistoryDialog, TurnOffDialog } from "./alerts/AlertDialogs.jsx";
 
-const HAZARD_TYPE_CATEGORY = {
-  Flood: "Disaster Alert",
-  Typhoon: "Disaster Alert",
-  Landslide: "Disaster Alert",
-  "General Emergency": "Emergency Warning",
-};
+const TABS = [
+  ["Active", "Active"],
+  ["Draft", "Drafts"],
+  ["Inactive", "Inactive (history)"],
+  ["", "All"],
+];
+const STATE_BADGE = { Draft: "badge badge-unassessed", Active: "badge badge-ready", Inactive: "badge ba-badge-inactive" };
 
-const HAZARD_TYPES = ["Flood", "Typhoon", "Landslide", "General Emergency"];
-const STATUS_LEVELS = ["Normal", "Alert", "Warning", "Critical"];
-const STATUS_BADGE = { Normal: "badge-low", Alert: "badge-medium", Warning: "badge-attention", Critical: "badge-critical" };
+/** API record -> row: the raw record plus the normalized fields the alert components use. */
+const toRow = (r) => ({ ...r, ...normalizeAlert(r), alert_id: Number(r.alert_id) });
 
-const EMPTY_FORM = { hazard_type: "Flood", status: "Alert", title: "", description: "", affected_purok: "" };
+function When({ iso, by }) {
+  if (!iso) return <span className="ba-cell-muted">—</span>;
+  return <span className="ba-when"><time dateTime={iso}>{formatManila(iso)}</time>{by && <span className="ba-cell-muted">{by}</span>}</span>;
+}
 
+/**
+ * Barangay Alerts (Administrator). Draft -> Active -> Inactive: create as a draft, edit, activate (shown on
+ * the public Home map and the staff Barangay Map), turn off with an optional note. Turned-off alerts are
+ * kept with their history. Every change is saved on the server before success is shown; the list refreshes
+ * right after and open maps in this browser refresh at once (others within about 15 seconds).
+ */
 export default function HazardAlerts() {
   const navigate = useNavigate();
-  const [alerts, setAlerts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [statusModal, setStatusModal] = useState(null);
-  const [newStatus, setNewStatus] = useState("Alert");
+  const [rows, setRows] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [tab, setTab] = useState("Active");
+  const [notice, setNotice] = useState("");
+  const [dialog, setDialog] = useState(null); // { kind: 'form'|'activate'|'off'|'delete'|'history', alert? }
 
-  const [typeFilter, setTypeFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [activeFilter, setActiveFilter] = useState("1");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-
-  // Phase 19: load(true) refreshes silently (used by auto-refresh — no spinner, forms untouched).
-  const load = (silent = false) => {
-    if (silent !== true) setLoading(true);
-    const params = {};
-    if (typeFilter) params.hazard_type = typeFilter;
-    if (statusFilter) params.status = statusFilter;
-    if (activeFilter !== "") params.active_only = activeFilter;
-    if (dateFrom) params.date_from = dateFrom;
-    if (dateTo) params.date_to = dateTo;
-    getHazardAlerts(params).then((res) => setAlerts(res.data.data)).finally(() => setLoading(false));
-  };
-
-  useEffect(load, [typeFilter, statusFilter, activeFilter, dateFrom, dateTo]);
-  useAutoRefresh(() => load(true), 45000);
-
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const load = useCallback(async () => {
     try {
-      await addHazardAlert(form);
-      setModalOpen(false);
-      setForm(EMPTY_FORM);
-      load();
+      const res = await getHazardAlerts();
+      setRows((res.data.data || []).map(toRow));
+      setLoadError("");
     } catch (err) {
-      alert(err.response?.data?.message || "We couldn't issue the hazard alert. Please try again.");
+      setLoadError(err.response?.data?.message || "We couldn't load the alerts. The list shows the last records loaded; it will try again automatically.");
+    } finally {
+      setLoaded(true);
     }
+  }, []);
+  const { refresh } = usePolling(load, { interval: 30000 });
+
+  const counts = useMemo(() => rows.reduce((c, r) => ({ ...c, [r.alert_status]: (c[r.alert_status] || 0) + 1 }), {}), [rows]);
+  const shown = tab ? rows.filter((r) => r.alert_status === tab) : rows;
+
+  /** After the server saved a change: refresh the list (and open maps), then close the dialog and show the message. */
+  const done = async (message, nextTab) => {
+    announceAlertsChanged();
+    await refresh();
+    setDialog(null);
+    setNotice(message);
+    if (nextTab !== undefined) setTab(nextTab);
+  };
+  const actions = {
+    save: async (payload) => {
+      const res = payload.alert_id ? await updateAlert(payload) : await createAlert(payload);
+      await done(res.data.message, payload.alert_id ? undefined : "Draft");
+    },
+    activate: async (a) => { const res = await activateAlert(a.alert_id); await done(`“${a.title}”: ${res.data.message}`, "Active"); },
+    off: async (a, note) => { const res = await deactivateAlert(a.alert_id, note || null); await done(`“${a.title}”: ${res.data.message}`); },
+    remove: async (a) => { const res = await deleteAlertDraft(a.alert_id); await done(res.data.message); },
   };
 
-  const openStatusModal = (row) => { setStatusModal(row); setNewStatus(row.status); };
+  const sendSms = (r) => navigate("/admin/send-sms", {
+    state: {
+      category: "Emergency Warning",
+      message: `BARANGAY BINITAYAN — ${r.type.toUpperCase()} ${r.severity.toUpperCase()}: ${r.title}. ${areaLabel(r)}. ${r.instructions || r.description || ""}`.trim(),
+      recipient_mode: "household",
+    },
+  });
 
-  const handleStatusUpdate = async (e) => {
-    e.preventDefault();
-    await updateHazardStatus(statusModal.alert_id, newStatus);
-    setStatusModal(null);
-    load();
-  };
+  const columns = [
+    { key: "title", label: "Alert", render: (r) => (
+      <span className="ba-cell-alert"><strong>{r.title}</strong><span className="ba-cell-muted">{r.type}</span></span>
+    ) },
+    { key: "severity", label: "Severity", render: (r) => <SeverityBadge severity={r.severity} /> },
+    { key: "area", label: "Affected area", render: (r) => areaLabel(r) },
+    { key: "alert_status", label: "Status", render: (r) => <span className={STATE_BADGE[r.alert_status]}>{r.alert_status}</span> },
+    { key: "activated", label: "Activated", render: (r) => <When iso={r.activated_at} by={r.issued_by_name} /> },
+    { key: "deactivated", label: "Turned off", render: (r) => <When iso={r.deactivated_at} by={r.resolved_by_name} /> },
+    { key: "people", label: "Created / last updated by", render: (r) => (
+      <span className="ba-when"><span>{r.created_by_name || "—"}</span><span className="ba-cell-muted">Updated by {r.updated_by_name || "—"}</span></span>
+    ) },
+    { key: "actions", label: "Actions", render: (r) => (
+      <div className="ba-actions">
+        {r.alert_status !== "Inactive" && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDialog({ kind: "form", alert: r })}><Pencil aria-hidden="true" size={14} />Edit<span className="sr-only"> {r.title}</span></button>}
+        {r.alert_status === "Draft" && <button type="button" className="btn btn-primary btn-sm" onClick={() => setDialog({ kind: "activate", alert: r })}><Send aria-hidden="true" size={14} />Activate<span className="sr-only"> {r.title}</span></button>}
+        {r.alert_status === "Active" && <button type="button" className="btn btn-danger btn-sm" onClick={() => setDialog({ kind: "off", alert: r })}><Power aria-hidden="true" size={14} />Turn off<span className="sr-only"> {r.title}</span></button>}
+        {r.alert_status === "Active" && <button type="button" className="btn btn-ghost btn-sm" onClick={() => sendSms(r)}><MessageSquareText aria-hidden="true" size={14} />Send SMS<span className="sr-only"> about {r.title}</span></button>}
+        {r.alert_status === "Draft" && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDialog({ kind: "delete", alert: r })}><Trash2 aria-hidden="true" size={14} />Delete draft<span className="sr-only"> {r.title}</span></button>}
+        {r.alert_status !== "Draft" && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDialog({ kind: "history", alert: r })}><History aria-hidden="true" size={14} />History<span className="sr-only"> of {r.title}</span></button>}
+      </div>
+    ) },
+  ];
 
-  const handleResolve = async (alert_id) => {
-    if (!confirm("Resolve this hazard alert? It will move to history and will no longer be included in the priority assessment.")) return;
-    await resolveHazardAlert(alert_id);
-    load();
-  };
-
-  const handleDelete = async (alert_id) => {
-    if (!confirm("Delete this hazard alert? This action cannot be undone.")) return;
-    await deleteHazardAlert(alert_id);
-    load();
-  };
-
-  const resetFilters = () => {
-    setTypeFilter(""); setStatusFilter(""); setActiveFilter("1"); setDateFrom(""); setDateTo("");
-  };
-
-  const handleNotify = (row) => {
-    navigate("/admin/send-sms", {
-      state: {
-        category: HAZARD_TYPE_CATEGORY[row.hazard_type] || "Emergency Warning",
-        message: `BARANGAY BINITAYAN — ${row.hazard_type.toUpperCase()} (${row.status}): ${row.title}. ${row.description || ""}`.trim(),
-        recipient_mode: "household",
-      },
-    });
-  };
+  const empty = { Active: "No active barangay alerts. Activate a draft to show it on the barangay map.", Draft: "No drafts. Use New alert to prepare one.", Inactive: "No turned-off alerts yet.", "": "No alerts have been created yet." }[tab];
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h1>Hazard Alerts</h1>
-          <p>Issue and manage Hazard Alerts. Active alerts are included in the household priority assessment.</p>
-        </div>
-        <button className="btn btn-primary" onClick={() => setModalOpen(true)}>+ Issue Hazard Alert</button>
+      <PageHeader
+        title="Barangay Alerts"
+        description="Create alerts as drafts, activate them to show on the barangay map, and turn them off when the situation ends. Turned-off alerts stay here as history."
+        actions={<Button icon={Plus} onClick={() => { setNotice(""); setDialog({ kind: "form" }); }}>New alert</Button>}
+      />
+
+      {notice && <div className="alert alert-success ba-notice" role="status">{notice}</div>}
+      {loadError && <div className="alert alert-error" role="alert">{loadError}</div>}
+
+      <div className="seg-tabs" role="tablist" aria-label="Alert status">
+        {TABS.map(([key, label]) => (
+          <button key={label} type="button" role="tab" className="seg-tab" aria-selected={tab === key} aria-controls="ba-table" onClick={() => setTab(key)}>
+            {label} <span className="ba-tab-count">{key ? counts[key] || 0 : rows.length}</span>
+          </button>
+        ))}
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="form-row filter-row">
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label>Hazard Type</label>
-            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-              <option value="">All</option>
-              {HAZARD_TYPES.map((t) => <option key={t}>{t}</option>)}
-            </select>
-          </div>
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label>Status</label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="">All</option>
-              {STATUS_LEVELS.map((s) => <option key={s}>{s}</option>)}
-            </select>
-          </div>
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label>Show</label>
-            <select value={activeFilter} onChange={(e) => setActiveFilter(e.target.value)}>
-              <option value="1">Active Only</option>
-              <option value="0">Resolved (History)</option>
-              <option value="">All</option>
-            </select>
-          </div>
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label>From</label>
-            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-          </div>
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label>To</label>
-            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-          </div>
-        </div>
-        <div style={{ marginTop: 12 }}>
-          <button className="btn btn-ghost btn-sm" onClick={resetFilters}>Reset Filters</button>
-        </div>
+      <div className="card" id="ba-table" role="tabpanel">
+        {!loaded ? <div className="loading-text">Loading alerts…</div> : <DataTable columns={columns} rows={shown.map((r) => ({ ...r, id: r.alert_id }))} emptyText={empty} />}
       </div>
 
-      <div className="card">
-        {loading ? (
-          <div className="loading-text">Loading hazard alerts…</div>
-        ) : (
-          <DataTable
-            columns={[
-              { key: "hazard_type", label: "Type" },
-              { key: "title", label: "Title" },
-              { key: "affected_purok", label: "Area", render: (r) => r.affected_purok ? purokLabel(r.affected_purok) : "Barangay-wide" },
-              { key: "status", label: "Status", render: (r) => <span className={`badge ${STATUS_BADGE[r.status]}`}>{r.status}</span> },
-              { key: "is_active", label: "Alert State", render: (r) => r.is_active ? <span className="badge badge-medium">Active</span> : <span className="badge badge-low">Resolved</span> },
-              { key: "issued_by_name", label: "Issued By", render: (r) => r.issued_by_name || "—" },
-              { key: "issued_at", label: "Date Issued" },
-              { key: "actions", label: "Actions", render: (row) => (
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {row.is_active && (
-                    <>
-                      <button className="btn btn-ghost btn-sm" onClick={() => openStatusModal(row)}>Update Status</button>
-                      <button className="btn btn-secondary btn-sm" onClick={() => handleResolve(row.alert_id)}>Resolve</button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => handleNotify(row)}>Send SMS</button>
-                    </>
-                  )}
-                  {!row.is_active && (
-                    <span style={{ fontSize: 12.5, color: "var(--color-ink-soft)" }}>
-                      Resolved by {row.resolved_by_name || "—"}
-                    </span>
-                  )}
-                  <button className="btn btn-danger btn-sm" onClick={() => handleDelete(row.alert_id)}>Delete</button>
-                </div>
-              )},
-            ]}
-            rows={alerts}
-            emptyText="No hazard alerts match your filters."
-          />
-        )}
-      </div>
-
-      {modalOpen && (
-        <Modal title="Issue Hazard Alert" onClose={() => setModalOpen(false)}>
-          <form onSubmit={handleSubmit}>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Hazard Type</label>
-                <select name="hazard_type" value={form.hazard_type} onChange={handleChange}>
-                  {HAZARD_TYPES.map((t) => <option key={t}>{t}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Initial Status</label>
-                <select name="status" value={form.status} onChange={handleChange}>
-                  {STATUS_LEVELS.map((s) => <option key={s}>{s}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="form-group">
-              <label>Title</label>
-              <input name="title" value={form.title} onChange={handleChange} placeholder="e.g. Rising water level along Binitayan River" required />
-            </div>
-            <div className="form-group">
-              <label>Affected Purok (optional)</label>
-              <PurokSelect name="affected_purok" value={form.affected_purok} onChange={handleChange} allowEmpty emptyLabel="Barangay-wide (all puroks)" />
-            </div>
-            <div className="form-group">
-              <label>Description</label>
-              <textarea name="description" value={form.description} onChange={handleChange} placeholder="Details for residents" />
-            </div>
-            <div className="modal-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setModalOpen(false)}>Cancel</button>
-              <button type="submit" className="btn btn-primary">Issue Hazard Alert</button>
-            </div>
-          </form>
-        </Modal>
-      )}
-
-      {statusModal && (
-        <Modal title={`Update Status — ${statusModal.title}`} onClose={() => setStatusModal(null)}>
-          <form onSubmit={handleStatusUpdate}>
-            <div className="form-group">
-              <label>New Status</label>
-              <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
-                {STATUS_LEVELS.map((s) => <option key={s}>{s}</option>)}
-              </select>
-            </div>
-            <p style={{ fontSize: 12.5, color: "var(--color-ink-soft)" }}>
-              Raise or lower the alert level (Alert, Warning, Critical) as the situation changes.
-              Once the hazard has passed, use Resolve instead.
-            </p>
-            <div className="modal-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setStatusModal(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary">Update Status</button>
-            </div>
-          </form>
-        </Modal>
-      )}
+      {dialog?.kind === "form" && <AlertForm alert={dialog.alert} onClose={() => setDialog(null)} onSave={actions.save} />}
+      {dialog?.kind === "activate" && <ActivateDialog alert={dialog.alert} onClose={() => setDialog(null)} onConfirm={() => actions.activate(dialog.alert)} />}
+      {dialog?.kind === "off" && <TurnOffDialog alert={dialog.alert} onClose={() => setDialog(null)} onConfirm={(note) => actions.off(dialog.alert, note)} />}
+      {dialog?.kind === "delete" && <DeleteDraftDialog alert={dialog.alert} onClose={() => setDialog(null)} onConfirm={() => actions.remove(dialog.alert)} />}
+      {dialog?.kind === "history" && <HistoryDialog alertId={dialog.alert.alert_id} onClose={() => setDialog(null)} />}
     </>
   );
 }

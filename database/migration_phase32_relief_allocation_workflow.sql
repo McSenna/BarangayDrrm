@@ -112,7 +112,6 @@ JOIN household_allocations a ON a.household_id = f.household_id AND a.round_no =
 SET f.allocation_id = a.allocation_id
 WHERE f.allocation_id IS NULL;
 
--- Old approval-flow allocations still waiting are replaced by the new workflow (user decision 2026-10-17).
 -- Approval never deducted stock, so no stock changes.
 INSERT INTO audit_logs (user_id, action, details)
 SELECT NULL, 'Legacy allocations cancelled',

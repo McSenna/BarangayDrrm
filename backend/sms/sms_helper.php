@@ -18,7 +18,7 @@
  *   - optional $options['event_type'|'allocation_id'|'request_id'] and a
  *     per-recipient 'household_id' are stored in the new sms_logs columns,
  *     together with a short provider response (never the API key)
- *   - the TextBee call is one function (textbee_send) shared with sms/retry.php
+ *   - the Semaphore call is one function (semaphore_send) shared with sms/retry.php
  *   - if the Phase 20 migration has not been run yet, logging falls back to
  *     the Phase 19 columns, so SMS keeps working
  *   - clear wording when SMS is switched off: "SMS notifications are currently disabled."
@@ -66,10 +66,10 @@ function sms_config_state(): array
     $state = [
         'enabled' => !empty($config['SMS_ENABLED']),
         'api_key' => trim((string) ($config['API_KEY'] ?? '')),
-        'device_id' => trim((string) ($config['DEVICE_ID'] ?? '')),
+        'sender_name' => trim((string) ($config['SENDER_NAME'] ?? '')),
         'base_url' => trim((string) ($config['API_BASE_URL'] ?? '')),
     ];
-    $state['ready'] = $state['enabled'] && $state['api_key'] !== '' && $state['device_id'] !== '';
+    $state['ready'] = $state['enabled'] && $state['api_key'] !== '';
     return $state;
 }
 
@@ -80,16 +80,12 @@ function sms_short_response($text): ?string
     return mb_substr(preg_replace('/\s+/', ' ', (string) $text), 0, 300);
 }
 
-/**
- * One call to the textbee.dev gateway for one message and one or more numbers.
- * @return array ['ok' => bool, 'http_code' => int, 'error' => ?string, 'response' => ?string]
- */
-function textbee_send(array $state, array $numbers, string $message, int $timeout): array
+function semaphore_send(array $state, array $numbers, string $message, int $timeout): array
 {
     if (!function_exists('curl_init')) {
         return ['ok' => false, 'http_code' => 0, 'error' => "PHP's curl extension is not enabled.", 'response' => null];
     }
-    $url = rtrim($state['base_url'], '/') . '/devices/' . rawurlencode($state['device_id']) . '/send-sms';
+    $url = $state['base_url'];
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -97,23 +93,63 @@ function textbee_send(array $state, array $numbers, string $message, int $timeou
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, min(5, $timeout));
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'x-api-key: ' . $state['api_key'],
+        'Content-Type: application/x-www-form-urlencoded',
     ]);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
-        'recipients' => array_values($numbers),
+    $parameters = [
+        'apikey' => $state['api_key'],
+        'number' => implode(',', array_map('semaphore_number', $numbers)),
         'message' => $message,
-    ]));
+    ];
+    if ($state['sender_name'] !== '') $parameters['sendername'] = $state['sender_name'];
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($parameters));
 
     $response = curl_exec($ch);
     $http_code = intval(curl_getinfo($ch, CURLINFO_HTTP_CODE));
     $curl_error = curl_error($ch);
     curl_close($ch);
 
-    $ok = ($response !== false && $http_code >= 200 && $http_code < 300);
-    // The API key is never part of the stored error text.
-    $error = $ok ? null : ($curl_error ?: "textbee.dev API returned HTTP $http_code: " . substr((string) $response, 0, 300));
-    return ['ok' => $ok, 'http_code' => $http_code, 'error' => $error, 'response' => sms_short_response($response)];
+    return semaphore_parse_response($http_code, $response, $curl_error, $state['api_key']);
+}
+
+/** Semaphore accepts Philippine numbers in international digits-only format. */
+function semaphore_number(string $number): string
+{
+    $digits = preg_replace('/[^0-9]/', '', $number);
+    return str_starts_with($digits, '09') ? '63' . substr($digits, 1) : $digits;
+}
+
+/** Validate the provider payload as well as HTTP status, and redact secrets. */
+function semaphore_parse_response(int $http_code, $response, string $curl_error, string $api_key): array
+{
+    $decoded = json_decode((string) $response, true);
+    $ok = $response !== false && $http_code >= 200 && $http_code < 300
+        && is_array($decoded) && isset($decoded[0]);
+    if ($ok) {
+        foreach ($decoded as $row) {
+            if (!is_array($row) || empty($row['message_id'])
+                || !in_array(strtolower((string) ($row['status'] ?? '')), ['queued', 'pending', 'sent'], true)) {
+                $ok = false;
+                break;
+            }
+        }
+    }
+    $safe = $api_key !== '' ? str_replace($api_key, '[REDACTED]', (string) $response) : (string) $response;
+    $safe_error = $api_key !== '' ? str_replace($api_key, '[REDACTED]', $curl_error) : $curl_error;
+    return ['ok' => $ok, 'http_code' => $http_code,
+        'error' => $ok ? null : ($safe_error ?: "Semaphore API returned HTTP $http_code: " . substr($safe, 0, 300)),
+        'response' => sms_short_response($safe)];
+}
+
+/** Translate known setup failures without exposing raw gateway responses. */
+function sms_failure_message(?string $error): string
+{
+    if (stripos((string) $error, 'No active sender name found') !== false) {
+        return 'Semaphore could not send this SMS because your account has no approved sender name. '
+            . 'Register a sender name in your Semaphore dashboard and wait for approval, then retry from SMS Logs. '
+            . 'The failed attempt was recorded in SMS Logs.';
+    }
+    return 'The SMS could not be sent. The attempt was recorded in SMS Logs with the status "Failed". '
+        . 'Please check the SMS service connection and retry from SMS Logs.';
 }
 
 /** Phase 25: sms_logs has the Queued / Accepted by Gateway / Delivered statuses and provider_message_id. */
@@ -128,7 +164,7 @@ function sms_logs_phase25(PDO $conn): bool
 }
 
 /**
- * Status for "the gateway accepted the request". TextBee answering HTTP 2xx
+ * Status for "the gateway accepted the request". Semaphore answering HTTP 2xx
  * means the message was ACCEPTED for sending, not that the phone received it,
  * so it is never recorded as Delivered. Before Phase 25 the legacy word 'Sent'
  * is kept (the ENUM has no other value).
@@ -141,13 +177,13 @@ function sms_accepted_status(PDO $conn): string
 /** Statuses that mean "handed to the gateway" — never retried, counted as sent in reports. */
 const SMS_ACCEPTED_STATUSES = ['Sent', 'Accepted by Gateway', 'Delivered'];
 
-/** The provider's message/batch ID from a TextBee JSON response, if it gives one. */
+/** The provider's message/batch ID from a Semaphore JSON response, if it gives one. */
 function sms_provider_message_id(?string $response): ?string
 {
     if (!$response) return null;
     $j = json_decode($response, true);
     if (!is_array($j)) return null;
-    foreach ([['data', 'smsBatchId'], ['data', '_id'], ['data', 'id'], ['smsBatchId'], ['_id'], ['id']] as $path) {
+    foreach ([[0, 'message_id'], ['data', 'smsBatchId'], ['data', '_id'], ['data', 'id'], ['smsBatchId'], ['_id'], ['id']] as $path) {
         $v = $j;
         foreach ($path as $k) { $v = is_array($v) && array_key_exists($k, $v) ? $v[$k] : null; }
         if (is_scalar($v) && $v !== '') return mb_substr((string) $v, 0, 100);
@@ -156,14 +192,14 @@ function sms_provider_message_id(?string $response): ?string
 }
 
 /**
- * Phase 25 — send every Queued row in $sms_ids (one TextBee call per row) and
+ * Phase 25 — send every Queued row in $sms_ids (one Semaphore call per row) and
  * record the outcome on the same row. Used right after queueing, and safe to
  * call again: a row that is no longer Queued is skipped (locked + re-checked).
- * @return array ['accepted' => int, 'failed' => int, 'skipped' => int]
+ * @return array ['accepted' => int, 'failed' => int, 'skipped' => int, 'failure_message' => ?string]
  */
 function sms_process_queued(PDO $conn, array $sms_ids, int $timeout = 8): array
 {
-    $out = ['accepted' => 0, 'failed' => 0, 'skipped' => 0];
+    $out = ['accepted' => 0, 'failed' => 0, 'skipped' => 0, 'failure_message' => null];
     $state = sms_config_state();
     $accepted = sms_accepted_status($conn);
     foreach ($sms_ids as $id) {
@@ -181,7 +217,10 @@ function sms_process_queued(PDO $conn, array $sms_ids, int $timeout = 8): array
             $out['failed']++; continue;
         }
         if ($own_tx) $conn->commit(); // do not hold the row lock during the network call
-        $r = textbee_send($state, [$row['recipient_number']], $row['message'], $timeout);
+        $r = semaphore_send($state, [$row['recipient_number']], $row['message'], $timeout);
+        if (!$r['ok'] && $out['failure_message'] === null) {
+            $out['failure_message'] = sms_failure_message($r['error']);
+        }
         $conn->prepare("UPDATE sms_logs SET status = :s, error_message = :e, provider_response = :p, provider_message_id = :m, last_attempt_at = NOW()
                         WHERE sms_id = :id AND status = 'Queued'")
              ->execute([':s' => $r['ok'] ? $accepted : 'Failed', ':e' => $r['error'], ':p' => $r['response'],
@@ -286,7 +325,7 @@ function send_sms_batch(PDO $conn, array $recipients, string $message, string $c
     // --- Switched off / not configured: log every recipient as such ---
     if (!$state['ready']) {
         foreach ($recipients as $r) {
-            $log($r, 'Not Configured', SMS_DISABLED_MESSAGE . ' Set TEXTBEE_SMS_ENABLED, TEXTBEE_API_KEY and TEXTBEE_DEVICE_ID in backend/config/app_config.local.php.');
+            $log($r, 'Not Configured', SMS_DISABLED_MESSAGE . ' Set SEMAPHORE_SMS_ENABLED and SEMAPHORE_API_KEY in backend/config/app_config.local.php.');
         }
         return [
             'success' => false,
@@ -317,7 +356,7 @@ function send_sms_batch(PDO $conn, array $recipients, string $message, string $c
             'success' => $ok,
             'message' => $ok
                 ? 'SMS accepted by the gateway for ' . $p['accepted'] . ' recipient(s) (delivery to the phone is not confirmed by the provider).' . ($invalid_count ? " $invalid_count invalid number(s) were skipped." : '')
-                : 'The SMS could not be sent. The attempt was recorded in SMS Logs with the status "Failed". Please check the SMS service connection and retry from SMS Logs.',
+                : ($p['failure_message'] ?? sms_failure_message(null)),
             'sent_count' => $p['accepted'],
             'failed_count' => $p['failed'] + $invalid_count,
             'status' => $ok ? sms_accepted_status($conn) : 'Failed',
@@ -325,8 +364,8 @@ function send_sms_batch(PDO $conn, array $recipients, string $message, string $c
         ];
     }
 
-    // --- Send via textbee.dev (one call, all numbers in the recipients array) ---
-    $result = textbee_send($state, array_map(fn($r) => $r['number'], $recipients), $message, $timeout);
+    // --- Send via Semaphore (one call, all numbers in the recipients array) ---
+    $result = semaphore_send($state, array_map(fn($r) => $r['number'], $recipients), $message, $timeout);
     $status = $result['ok'] ? 'Sent' : 'Failed';
 
     foreach ($recipients as $r) {
@@ -341,7 +380,7 @@ function send_sms_batch(PDO $conn, array $recipients, string $message, string $c
         'success' => $result['ok'],
         'message' => $result['ok']
             ? 'SMS sent to ' . count($recipients) . ' recipient(s).' . ($invalid_count ? " $invalid_count invalid number(s) were skipped." : '')
-            : 'The SMS could not be sent. The attempt was recorded in SMS Logs with the status "Failed". Please check the SMS service connection and try again.',
+            : sms_failure_message($result['error']),
         'sent_count' => $result['ok'] ? count($recipients) : 0,
         'failed_count' => ($result['ok'] ? 0 : count($recipients)) + $invalid_count,
         'status' => $status,

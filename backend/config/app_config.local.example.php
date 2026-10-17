@@ -15,10 +15,10 @@ return [
     'DB_NAME' => 'u000000000_binitayan',
     'DB_USER' => 'u000000000_binitayan',
     'DB_PASS' => 'change-me',
-    // TextBee SMS gateway (leave TEXTBEE_SMS_ENABLED false until configured)
-    'TEXTBEE_SMS_ENABLED' => false,
-    'TEXTBEE_API_KEY' => '',
-    'TEXTBEE_DEVICE_ID' => '',
+    // Semaphore SMS gateway; blank sender uses the account's registered default.
+    'SEMAPHORE_SMS_ENABLED' => false,
+    'SEMAPHORE_API_KEY' => '',
+    'SEMAPHORE_SENDER_NAME' => '',
     'CORS_ALLOWED_ORIGINS' => [
         'https://your-domain.example',
         'https://www.your-domain.example',

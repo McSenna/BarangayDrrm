@@ -10,6 +10,7 @@ import { HouseholdPopup, PurokPopup } from "./GisPopups.jsx";
 import { AffectedAreaLayer, IncidentLayer, EvacuationCenterLayer, MyLocationLayer } from "../map/OverlayLayers.jsx";
 import { ZONE_STYLES, GIS_MASK, GIS_BOUNDARY, GIS_ASSIGN_LINE, MAP_COLORS, PRIORITY_COLORS, PUROK_COLORS } from "../../theme/mapTokens.js";
 import { purokKey } from "../../utils/purokLabel.js";
+import AlertAreaLayer from "../../features/alerts/AlertAreaLayer.jsx";
 
 /**
  * Barangay Binitayan GIS map (Admin and Relief Personnel).
@@ -23,11 +24,12 @@ import { purokKey } from "../../utils/purokLabel.js";
  * by an opaque mask.
  *
  * Layer order (bottom to top): OSM tiles → outside mask → Purok designation
- * polygons → barangay outline → Purok labels → household markers → popups.
+ * polygons → barangay outline → active alert areas (Phase 33, own pane,
+ * non-interactive) → Purok labels → household markers → popups.
  */
 
 // Bottom → top. Leaflet's own panes: tiles 200, overlay 400, marker 600, tooltip 650, popup 700.
-const Z = { mask: 380, zones: 410, outline: 430, labels: 450 };
+const Z = { mask: 380, zones: 410, outline: 430, alerts: 440, labels: 450 };
 
 const HOUSE_SVG =
   '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/>' +
@@ -152,6 +154,10 @@ function LockedView({ focus, onSettled }) {
       const opts = { padding: [48, 48], maxZoom: 18.5 };
       if (animate) map.flyToBounds(PUROK_BY_NAME.get(focus.name).bounds, { ...opts, duration: 0.6 });
       else map.fitBounds(PUROK_BY_NAME.get(focus.name).bounds, { ...opts, animate: false });
+    } else if (focus.type === "bounds" && focus.bounds) {
+      const opts = { padding: [48, 48], maxZoom: 18 };
+      if (animate) map.flyToBounds(focus.bounds, { ...opts, duration: 0.6 });
+      else map.fitBounds(focus.bounds, { ...opts, animate: false });
     } else if (focus.type === "overview") {
       if (animate) map.flyTo(BARANGAY_BOUNDS.getCenter(), map.getMinZoom(), { duration: 0.5 });
       else map.setView(BARANGAY_BOUNDS.getCenter(), map.getMinZoom(), { animate: false });
@@ -252,7 +258,8 @@ export default function GisMap({
   affectedInfo = null,
   centers = [],
   hazardPurokKeys = null,
-  barangayWideHazard = false,
+  alerts = [],                // active barangay alerts (normalized), drawn as their own layer
+  selectedAlertId = null,
   myLocation = null,
 }) {
   const assigning = !!assign;
@@ -312,13 +319,10 @@ export default function GisMap({
       {layers.areas && <AffectedAreaLayer areas={affectedAreas} drawing={assigning} pane="gis-zones" />}
 
       <Pane name="gis-outline" style={{ zIndex: Z.outline }}>
-        <GeoJSON
-          key={barangayWideHazard ? "outline-hazard" : "outline"}
-          data={binitayanBoundary}
-          style={() => (barangayWideHazard ? { ...GIS_BOUNDARY, color: MAP_COLORS.hazard, dashArray: "8 6" } : GIS_BOUNDARY)}
-          interactive={false}
-        />
+        <GeoJSON data={binitayanBoundary} style={() => GIS_BOUNDARY} interactive={false} />
       </Pane>
+
+      <AlertAreaLayer alerts={alerts} selectedId={selectedAlertId} pane="gis-alerts" zIndex={Z.alerts} />
 
       {layers.zones !== false && (
         <Pane name="gis-labels" style={{ zIndex: Z.labels }}>

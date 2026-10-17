@@ -40,6 +40,7 @@ export const STATUS_TONE = {
   // Hazard alert levels
   Normal: "ok",
   Alert: "warning",
+  Advisory: "warning",
   Warning: "attention",
   // Workflow
   Pending: "warning",

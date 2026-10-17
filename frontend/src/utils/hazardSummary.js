@@ -11,9 +11,9 @@ export function summarizeAlerts(alerts = [], typeOf = (a) => a.hazard_type) {
   return `${count} active hazard ${count === 1 ? "alert" : "alerts"}`;
 }
 
-/** Visual severity for the barangay status: Critical -> critical; Warning/Alert -> warning; else normal. */
+/** Visual severity for the barangay status: Critical -> critical; Warning/Advisory/Alert -> warning; else normal. */
 export function hazardSeverity(overallStatus) {
   if (overallStatus === "Critical") return "critical";
-  if (overallStatus === "Warning" || overallStatus === "Alert") return "warning";
+  if (overallStatus === "Warning" || overallStatus === "Advisory" || overallStatus === "Alert") return "warning";
   return "normal";
 }

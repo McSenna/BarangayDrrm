@@ -9,12 +9,15 @@ import "./gis/gis.css";
 import usePolling from "../hooks/usePolling.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
-  getHouseholds, getPriorityList, getEvacuationCenters, getHazardAlerts, getAffectedHouseholds, getReports,
+  getHouseholds, getPriorityList, getEvacuationCenters, getAffectedHouseholds, getReports,
   updateHouseholdCoordinates, getPurokClassification,
 } from "../services/api.jsx";
 import { STANDARD_PUROKS } from "../utils/purokBoundaries.js";
 import { purokKey } from "../utils/purokLabel.js";
 import { FLOOD_DESIGNATION_NOTE } from "../config/floodZones.js";
+import useActiveAlerts from "../features/alerts/useActiveAlerts.js";
+import ActiveAlertsPanel from "../features/alerts/ActiveAlertsPanel.jsx";
+import { alertBounds } from "../features/alerts/AlertAreaLayer.jsx";
 
 // Browser Geolocation errors, in plain words (the raw browser text is never shown).
 const GEO_ERROR_MESSAGES = {
@@ -60,7 +63,11 @@ export default function BarangayMapView() {
   const [incidentStatus, setIncidentStatus] = useState("open");
   const [reports, setReports] = useState([]);
   const [centers, setCenters] = useState([]);
-  const [activeAlerts, setActiveAlerts] = useState([]);
+  // Phase 33: active barangay alerts, refreshed about every 15 s (shared with the public Home map).
+  const liveAlerts = useActiveAlerts();
+  const activeAlerts = liveAlerts.alerts;
+  const [selectedAlertId, setSelectedAlertId] = useState(null);
+  const selectedAlert = activeAlerts.some((a) => a.id === selectedAlertId) ? selectedAlertId : null; // turned off -> unselected
   const [areaResult, setAreaResult] = useState(null);
   const [myLocation, setMyLocation] = useState(null);
   const [locating, setLocating] = useState(false);
@@ -114,13 +121,11 @@ export default function BarangayMapView() {
     // Extra layers load on their own, so a failure never hides the households.
     getEvacuationCenters().then((res) => setCenters(res.data.data || [])).catch(() => {});
     getReports().then((res) => setReports(res.data.data || [])).catch(() => {});
-    getHazardAlerts({ active_only: "1" }).then((res) => setActiveAlerts((res.data.data || []).filter((a) => Number(a.is_active) === 1))).catch(() => {});
     getAffectedHouseholds({ status: "Active" }).then((res) => setAreaResult(res.data)).catch(() => setAreaResult(null));
   }, []);
 
   const affectedInfo = useMemo(() => (areaResult ? new Map((areaResult.inside || []).map((h) => [Number(h.household_id), h])) : null), [areaResult]);
-  const hazardPurokKeys = useMemo(() => new Set(activeAlerts.filter((a) => a.affected_purok).map((a) => purokKey(a.affected_purok))), [activeAlerts]);
-  const barangayWideHazard = activeAlerts.some((a) => !a.affected_purok);
+  const hazardPurokKeys = useMemo(() => new Set(activeAlerts.flatMap((a) => (a.scope === "puroks" ? a.puroks : []))), [activeAlerts]);
   const incidents = useMemo(() => reports
     .filter((r) => (incidentStatus === "open" ? r.status !== "Rejected" : incidentStatus === "all" ? true : r.status === incidentStatus))
     .filter((r) => !purok || purokKey(r.purok) === purok)
@@ -187,6 +192,16 @@ export default function BarangayMapView() {
   const pickPurok = (name) => {
     setPurok((cur) => (cur === name ? "" : name));
     setFocus(purok === name ? { type: "overview", _t: Date.now() } : { type: "purok", name, _t: Date.now() });
+    scrollMapIntoView();
+  };
+  // Selecting an alert emphasises its area and fits the map to it (programmatic, inside the locked bounds).
+  const selectAlert = (id) => {
+    setSelectedAlertId(id);
+    if (id === null) return;
+    setLayers((l) => (l.hazards ? l : { ...l, hazards: true }));
+    const a = activeAlerts.find((x) => x.id === id);
+    const b = a && a.scope === "puroks" ? alertBounds(a) : null;
+    setFocus(b ? { type: "bounds", bounds: b, _t: Date.now() } : { type: "overview", _t: Date.now() });
     scrollMapIntoView();
   };
   const resetFilters = () => {
@@ -265,6 +280,8 @@ export default function BarangayMapView() {
         </p>
       )}
 
+      <ActiveAlertsPanel {...liveAlerts} selectedId={selectedAlert} onSelect={selectAlert} className="gis-alerts" />
+
       <div className={`gis-workspace${assign ? " is-assigning" : ""}`}>
         <div className="gis-frame" ref={mapFrameRef} role="region" aria-label="Map of Barangay Binitayan with household locations and Purok flood-zone designations">
           {loading && households.length === 0 ? (
@@ -291,7 +308,8 @@ export default function BarangayMapView() {
               affectedInfo={affectedInfo}
               centers={centers}
               hazardPurokKeys={hazardPurokKeys}
-              barangayWideHazard={layers.hazards && barangayWideHazard}
+              alerts={layers.hazards ? activeAlerts : []}
+              selectedAlertId={selectedAlert}
               myLocation={myLocation}
             />
           )}

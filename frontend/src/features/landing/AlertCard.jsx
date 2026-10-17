@@ -1,7 +1,8 @@
-import { CircleCheck, Flame, MapPin, Mountain, Siren, TriangleAlert, Waves } from "lucide-react";
+import { Flame, Info, MapPin, Mountain, Siren, TriangleAlert, Waves } from "lucide-react";
 import Button from "../../components/ui/Button.jsx";
 import IconTile from "../../components/ui/IconTile.jsx";
 import { summarizeAlerts } from "../../utils/hazardSummary.js";
+import { NO_ALERTS_TITLE } from "./mappers.js";
 
 const TYPE_ICON = { flood: Waves, flash_flood: Mountain, landslide: Mountain, fire: Flame, other: TriangleAlert };
 const WEATHER_WORDS = /(flood|typhoon|storm|rain|wind|weather|cyclone)/i;
@@ -10,7 +11,8 @@ const WEATHER_WORDS = /(flood|typhoon|storm|rain|wind|weather|cyclone)/i;
 const LEVEL = {
   critical: { cls: "alert-card alert-critical", icon: Siren, tile: "white" },
   warning: { cls: "alert-card alert-warning", icon: TriangleAlert, tile: "white" },
-  normal: { cls: "alert-card alert-normal", icon: CircleCheck, tile: "green" },
+  // No alert in effect: neutral icon, never a check mark — no alert does not mean an area is safe.
+  normal: { cls: "alert-card alert-normal", icon: Info, tile: "navy" },
 };
 
 /** Card title for each level (critical: "2 active flood incidents"). */
@@ -20,7 +22,7 @@ export function alertTitle(hazard) {
     const weather = hazard.incidents.length > 0 && hazard.incidents.every((i) => WEATHER_WORDS.test(i.title));
     return weather ? "Weather advisory in effect" : "Hazard advisory in effect";
   }
-  return "All clear — no active incidents";
+  return NO_ALERTS_TITLE;
 }
 
 /** One affected Purok: tinted card, hazard icon, "Purok 7 · Flood", one-line headline. */
@@ -54,7 +56,7 @@ export function AdvisorySteps({ title, steps }) {
 
 /**
  * Barangay alert card. critical = red header, warning = orange header (navy
- * text), normal = green-tint "all clear" with preparedness tips instead of
+ * text), normal = green-tint "no alert in effect" (neutral icon, never "all clear") with preparedness tips instead of
  * affected areas. The header is a polite live region, so a level change is
  * announced without interrupting.
  */
@@ -68,7 +70,7 @@ export default function AlertCard({ hazard, hasOpenCenters, hotlineHref }) {
       <div className="alert-head">
         <IconTile icon={cfg.icon} tone={cfg.tile} size="lg" />
         <div className="alert-head-text" role="status" aria-live="polite">
-          <p className="lp-eyebrow alert-level">Alert level: {hazard.statusLabel}</p>
+          <p className="lp-eyebrow alert-level">{active ? `Alert level: ${hazard.statusLabel}` : "No alert in effect"}</p>
           <h3 id="alert-title" className="alert-title">{alertTitle(hazard)}</h3>
         </div>
         {active && (

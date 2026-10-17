@@ -125,7 +125,7 @@ export const getInventoryLogs = (params = {}) => api.get("inventory/get_logs.php
 export const getLegacyAllocations = () => api.get("relief/get_allocations.php");
 
 // ---------------------------------------------------------------
-// SMS Notifications (Phase 10) — textbee.dev, disabled until configured
+// SMS Notifications (Phase 10) — Semaphore, disabled until configured
 // ---------------------------------------------------------------
 export const sendSms = (data) => api.post("sms/send.php", data);
 export const getSmsLogs = (params = {}) => api.get("sms/get_logs.php", { params });
@@ -157,6 +157,15 @@ export const resolveHazardAlert = (alert_id) => api.post("hazards/alerts/update_
 export const deleteHazardAlert = (alert_id) => api.delete("hazards/alerts/delete_alert.php", { data: { alert_id } });
 
 export const getPublicHazardStatus = () => api.get("hazards/get_public_status.php");
+
+// Barangay alerts (Phase 33): Draft -> Active -> Inactive. Public read; every change is admin-only on the server.
+export const getActiveAlerts = (config = {}) => api.get("hazards/alerts/get_active_alerts.php", config);
+export const createAlert = (data) => api.post("hazards/alerts/save_alert.php", data);
+export const updateAlert = (data) => api.put("hazards/alerts/save_alert.php", data);
+export const activateAlert = (alert_id) => api.post("hazards/alerts/activate.php", { alert_id });
+export const deactivateAlert = (alert_id, resolution_note) => api.post("hazards/alerts/deactivate.php", { alert_id, resolution_note });
+export const getAlertHistory = (alert_id) => api.get("hazards/alerts/get_alert_history.php", { params: { alert_id } });
+export const deleteAlertDraft = (alert_id) => api.post("hazards/alerts/delete_alert.php", { alert_id });
 
 // ---------------------------------------------------------------
 // Users (admin)

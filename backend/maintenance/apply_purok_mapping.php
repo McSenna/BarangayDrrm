@@ -43,7 +43,9 @@ try {
     $counts = [];
     foreach ([
         'households' => "UPDATE households SET purok = :new WHERE purok = :old",
-        'hazard_alerts' => "UPDATE hazard_alerts SET affected_purok = :new WHERE affected_purok = :old",
+        // Only older single-value alerts; Phase 33 alerts keep their Puroks in hazard_alert_puroks (always standard).
+        'hazard_alerts' => "UPDATE hazard_alerts ha SET affected_purok = :new WHERE affected_purok = :old
+                            AND NOT EXISTS (SELECT 1 FROM hazard_alert_puroks hp WHERE hp.alert_id = ha.alert_id)",
         'evacuation_centers' => "UPDATE evacuation_centers SET purok = :new WHERE purok = :old",
     ] as $table => $sql) {
         $stmt = $conn->prepare($sql);

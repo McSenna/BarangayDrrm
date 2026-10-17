@@ -24,7 +24,7 @@ function EmergencyLine({ hotline }) {
 }
 
 /** Slate hero: message, calls to action and emergency line; live map on the right. */
-export default function Hero({ data }) {
+export default function Hero({ data, alerts }) {
   return (
     <section className="lp-hero" aria-labelledby="hero-title">
       <div className="lp-hero-copy">
@@ -43,7 +43,7 @@ export default function Hero({ data }) {
         </div>
         <EmergencyLine hotline={data.config.hotline} />
       </div>
-      <MapPanel hazard={data.hazard} />
+      <MapPanel live={alerts} />
     </section>
   );
 }

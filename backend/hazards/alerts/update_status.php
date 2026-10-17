@@ -1,52 +1,31 @@
 <?php
+/**
+ * Older alert status call. Kept for compatibility, through the Phase 33 rules (backend/lib/barangay_alerts.php):
+ *   { alert_id, resolve: true }  -> turn the alert off (idempotent, history kept)
+ *   { alert_id, status }         -> change the severity of a Draft or Active alert
+ * Admin only.
+ */
 require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../lib/barangay_alerts.php';
 
 require_login(['admin']);
-
-$data = json_decode(file_get_contents("php://input"), true);
-$alert_id = intval($data['alert_id'] ?? 0);
-$status = $data['status'] ?? '';
-$resolve = !empty($data['resolve']);
-
-if ($alert_id <= 0) {
-    http_response_code(400);
-    echo json_encode(["success" => false, "message" => "alert_id is required."]);
-    exit();
-}
-
-$valid_status = ['Normal', 'Alert', 'Warning', 'Critical'];
-
-$database = new Database();
-$conn = $database->connect();
-
-$check = $conn->prepare("SELECT alert_id FROM hazard_alerts WHERE alert_id = :alert_id");
-$check->execute([':alert_id' => $alert_id]);
-if (!$check->fetch()) {
-    http_response_code(404);
-    echo json_encode(["success" => false, "message" => "Hazard alert not found."]);
-    exit();
-}
-
-if ($resolve) {
-    $stmt = $conn->prepare(
-        "UPDATE hazard_alerts SET is_active = 0, resolved_by = :resolved_by, resolved_at = NOW() WHERE alert_id = :alert_id"
-    );
-    $stmt->execute([':resolved_by' => $_SESSION['user_id'], ':alert_id' => $alert_id]);
-    log_action($conn, "Hazard alert resolved", "alert_id: $alert_id");
-    echo json_encode(["success" => true, "message" => "Hazard alert marked as resolved."]);
-    exit();
-}
-
-if (!in_array($status, $valid_status)) {
-    http_response_code(400);
-    echo json_encode(["success" => false, "message" => "A valid status is required."]);
-    exit();
-}
-
-$stmt = $conn->prepare("UPDATE hazard_alerts SET status = :status WHERE alert_id = :alert_id");
-$stmt->execute([':status' => $status, ':alert_id' => $alert_id]);
-
-log_action($conn, "Hazard alert status updated", "alert_id: $alert_id, status: $status");
-
-echo json_encode(["success" => true, "message" => "Hazard alert status updated."]);
+ba_respond(function () {
+    ba_require_method(['POST']);
+    $data = ba_json_body(['alert_id', 'status', 'resolve', 'resolution_note']);
+    $id = ba_alert_id($data['alert_id'] ?? null);
+    $conn = (new Database())->connect();
+    $actor = intval($_SESSION['user_id']);
+    if (!empty($data['resolve'])) {
+        $r = ba_deactivate($conn, $id, $actor, $data['resolution_note'] ?? null);
+        return [200, ['message' => $r['already'] ? 'This alert was already turned off.' : 'Hazard alert turned off.', 'alert' => $r['alert']]];
+    }
+    $current = ba_get($conn, $id);
+    if (!$current) ba_fail('The alert could not be found. It may have been removed.', 404);
+    $alert = ba_update($conn, $id, [
+        'title' => $current['title'], 'hazard_type' => $current['hazard_type'], 'severity' => $data['status'] ?? null,
+        'description' => $current['description'], 'instructions' => $current['instructions'],
+        'scope' => $current['scope'], 'puroks' => $current['puroks'], 'version' => $current['version'],
+    ], $actor);
+    return [200, ['message' => 'Hazard alert severity updated.', 'alert' => $alert]];
+});

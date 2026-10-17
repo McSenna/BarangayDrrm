@@ -128,7 +128,7 @@ export default function HazardMonitoring() {
         </dl>
         <div className="summary-actions">
           <Link to={`${base}/map`} className="btn btn-secondary btn-sm">Open Barangay Map</Link>
-          {user?.role === "admin" && <Link to="/admin/hazard-alerts" className="btn btn-ghost btn-sm">Manage Hazard Alerts</Link>}
+          {user?.role === "admin" && <Link to="/admin/hazard-alerts" className="btn btn-ghost btn-sm">Manage Barangay Alerts</Link>}
           {user?.role === "admin" && <Link to="/admin/affected-areas" className="btn btn-ghost btn-sm">Flood &amp; Affected Areas</Link>}
         </div>
       </section>

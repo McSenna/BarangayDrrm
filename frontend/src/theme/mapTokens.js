@@ -59,6 +59,28 @@ export const GIS_MASK = { stroke: false, fillColor: SLATE, fillOpacity: 1, inter
 export const GIS_BOUNDARY = { color: NAVY, weight: 3, opacity: 1, fill: false, interactive: false, className: "gis-boundary" };
 export const GIS_ASSIGN_LINE = { color: NAVY, weight: 2, dashArray: "4 6", opacity: 0.8, interactive: false };
 
+// Active barangay alert areas (Phase 33), mirrors --color-sev-*-line in tokens.css.
+// A separate layer from the flood-prone designation: a dark casing under a
+// severity-coloured outline, with a light tint. Dash pattern + label + icon
+// carry the severity too, so colour is never the only cue.
+export const ALERT_COLORS = { Advisory: "#EAB308", Warning: "#EA580C", Critical: RED };
+const ALERT_DASH = { Advisory: "3 7", Warning: "12 6", Critical: null };
+
+/** [casing, outline] path styles for one alert area. state: "normal" | "selected" | "dimmed". */
+export function alertAreaStyles(severity, state = "normal") {
+  const key = ALERT_COLORS[severity] ? severity : "Advisory";
+  const color = ALERT_COLORS[key];
+  const sel = state === "selected";
+  const dim = state === "dimmed";
+  return [
+    { color: TEXT, weight: sel ? 9 : 7, opacity: dim ? 0.2 : 0.55, fill: false, lineCap: "round", lineJoin: "round", interactive: false },
+    {
+      color, weight: sel ? 5 : 3.5, opacity: dim ? 0.4 : 1, dashArray: ALERT_DASH[key], lineCap: "round", lineJoin: "round",
+      fillColor: color, fillOpacity: sel ? 0.24 : dim ? 0.04 : 0.12, interactive: false,
+    },
+  ];
+}
+
 // Household priority level -> marker colour, lightest to most severe.
 export const PRIORITY_COLORS = {
   "Low Priority": GREEN,

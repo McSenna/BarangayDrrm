@@ -1,7 +1,8 @@
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import usePolling from "../hooks/usePolling.js";
 import { getNotifications, getPublicHazardStatus, getStatistics } from "../services/api.jsx";
 import { useAuth } from "./AuthContext.jsx";
+import { ALERTS_CHANGED_CHANNEL, ALERTS_CHANGED_EVENT } from "../features/alerts/alertModel.js";
 
 const ShellStatusContext = createContext({ hazard: null, stats: null, unread: 0 });
 
@@ -37,7 +38,16 @@ export function ShellStatusProvider({ children }) {
     await Promise.all(jobs);
   }, [role]);
 
-  usePolling(load, { interval: 60000, enabled: Boolean(role) });
+  const { refresh } = usePolling(load, { interval: 60000, enabled: Boolean(role) });
+
+  // Phase 33: an administrator changed a barangay alert in this browser — refresh the status chip now.
+  useEffect(() => {
+    if (!role) return undefined;
+    window.addEventListener(ALERTS_CHANGED_EVENT, refresh);
+    let channel = null;
+    try { channel = new BroadcastChannel(ALERTS_CHANGED_CHANNEL); channel.onmessage = refresh; } catch { channel = null; }
+    return () => { window.removeEventListener(ALERTS_CHANGED_EVENT, refresh); channel?.close(); };
+  }, [role, refresh]);
 
   return (
     <ShellStatusContext.Provider value={{ hazard, stats, unread }}>

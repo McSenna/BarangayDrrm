@@ -88,7 +88,7 @@ export function useLandingData() {
     }
     if (e.status === "fulfilled") setRaw((prev) => ({ ...prev, evacuation: e.value.data.data }));
   }, []);
-  usePolling(load, { interval: POLL_MS });
+  const { refresh } = usePolling(load, { interval: POLL_MS });
 
   const hazard = raw.hazard ? mapHazardStatus(raw.hazard, settings) : null;
   return {
@@ -101,5 +101,6 @@ export function useLandingData() {
     lastUpdated,
     stale: Boolean(lastUpdated) && now.getTime() - lastUpdated.getTime() > STALE_AFTER_MS,
     now,
+    refresh,
   };
 }

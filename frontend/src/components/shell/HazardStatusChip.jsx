@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { CircleCheck, Siren, TriangleAlert } from "lucide-react";
+import { CircleCheck, Info, Siren, TriangleAlert } from "lucide-react";
 import { useShellStatus } from "../../context/ShellStatusContext.jsx";
 import { summarizeAlerts } from "../../utils/hazardSummary.js";
 
@@ -8,6 +8,7 @@ import { summarizeAlerts } from "../../utils/hazardSummary.js";
  * endpoint (the highest level among active alerts).
  *   Critical          red chip, white text
  *   Warning / Alert   orange chip, navy text
+ *   Advisory          amber chip, navy text (Phase 33)
  *   Normal            green-tint chip, green-ink text
  * Links to Hazard Monitoring for roles that have it.
  */
@@ -15,6 +16,7 @@ const LEVELS = {
   Critical: { cls: "status-chip-critical", Icon: Siren },
   Warning: { cls: "status-chip-warning", Icon: TriangleAlert },
   Alert: { cls: "status-chip-warning", Icon: TriangleAlert },
+  Advisory: { cls: "status-chip-advisory", Icon: Info },
   Normal: { cls: "status-chip-normal", Icon: CircleCheck },
 };
 

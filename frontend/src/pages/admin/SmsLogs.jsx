@@ -3,9 +3,9 @@ import { useEffect, useState } from "react";
 import DataTable from "../../components/DataTable.jsx";
 import { getSmsLogs, getSmsStatus, retrySms } from "../../services/api.jsx";
 
-// Phase 25: honest statuses. "Accepted by Gateway" = TextBee accepted the request; it does NOT
+// Phase 25: honest statuses. "Accepted by Gateway" = Semaphore accepted the request; it does NOT
 // confirm the phone received it. "Delivered" is shown only when the provider confirms delivery
-// (not available from the current TextBee integration). Legacy "Sent" rows mean the same as accepted.
+// (not available from the current Semaphore integration). Legacy "Sent" rows mean the same as accepted.
 const STATUS_BADGE = { Sent: "badge-low", "Accepted by Gateway": "badge-low", Delivered: "badge-verified", Queued: "badge-pending", Failed: "badge-critical", "Not Configured": "badge-medium" };
 const STATUS_LABEL = { Sent: "Accepted by gateway (legacy “Sent”)", "Accepted by Gateway": "Accepted by gateway", Delivered: "Delivered (confirmed)", Queued: "Queued — not sent yet" };
 const ACCEPTED = ["Sent", "Accepted by Gateway", "Delivered"];
@@ -161,7 +161,7 @@ export default function SmsLogs() {
                   <span className={`badge ${STATUS_BADGE[r.status] || ""}`}>{STATUS_LABEL[r.status] || r.status}</span>
                   {Number(r.attempts) > 1 && <span style={{ fontSize: 11.5, color: "var(--color-ink-soft)" }}> · {r.attempts} attempts</span>}
                   <div style={{ fontSize: 12, color: "var(--color-ink-soft)", marginTop: 4 }}>
-                    {ACCEPTED.includes(r.status) ? `${r.provider_message_id ? `Provider ID ${r.provider_message_id}. ` : ""}Accepted by TextBee; delivery to the phone is not confirmed.`
+                    {ACCEPTED.includes(r.status) ? `${r.provider_message_id ? `Provider ID ${r.provider_message_id}. ` : ""}Accepted by Semaphore; delivery to the phone is not confirmed.`
                       : r.status === "Queued" ? "Waiting to be sent (the sending request may have been interrupted)."
                       : r.status === "Not Configured" ? "SMS was disabled — nothing was sent." : (r.error_message || "")}
                   </div>

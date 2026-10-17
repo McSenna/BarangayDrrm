@@ -142,8 +142,11 @@ $alert_sql = "SELECT alert_id, hazard_type, status, title, affected_purok, issue
               FROM hazard_alerts WHERE DATE(issued_at) >= :from";
 $alert_params = [':from' => $from_sql];
 if ($purok !== '') {
-    $alert_sql .= " AND (affected_purok IS NULL OR affected_purok = '' OR affected_purok = :purok)";
+    // Barangay-wide, the Purok itself (older single value), or one of the selected Puroks (Phase 33).
+    $alert_sql .= " AND (affected_purok IS NULL OR affected_purok = '' OR affected_purok = :purok
+                         OR alert_id IN (SELECT alert_id FROM hazard_alert_puroks WHERE purok = :purok2))";
     $alert_params[':purok'] = $purok;
+    $alert_params[':purok2'] = $purok;
 }
 $alerts_in_period = $run($alert_sql . " ORDER BY issued_at ASC", $alert_params)->fetchAll(PDO::FETCH_ASSOC);
 foreach ($alerts_in_period as &$a) {

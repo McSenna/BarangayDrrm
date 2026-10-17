@@ -1,55 +1,24 @@
 <?php
+/**
+ * Barangay alert records for staff (Phase 33 via backend/lib/barangay_alerts.php). Administrators also see
+ * drafts; Relief Personnel and Field Officers see active and turned-off alerts only, and purok-scoped staff
+ * only those for their Purok or the whole barangay.
+ * Filters: state (Draft|Active|Inactive), active_only (1|0), hazard_type, severity (or status), date_from, date_to.
+ */
 require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../lib/barangay_alerts.php';
 
-require_login(['admin', 'relief_personnel', 'field_officer']); // Phase 21: staff only (residents no longer use this data)
-
-$database = new Database();
-$conn = $database->connect();
-
-$hazard_type = $_GET['hazard_type'] ?? '';
-$status = $_GET['status'] ?? '';
-$active_only = $_GET['active_only'] ?? '';
-$date_from = $_GET['date_from'] ?? '';
-$date_to = $_GET['date_to'] ?? '';
-
-$sql = "SELECT ha.*, i.full_name AS issued_by_name, r.full_name AS resolved_by_name
-        FROM hazard_alerts ha
-        LEFT JOIN users i ON ha.issued_by = i.user_id
-        LEFT JOIN users r ON ha.resolved_by = r.user_id
-        WHERE 1=1";
-$params = [];
-
-if (in_array($hazard_type, ['Flood', 'Typhoon', 'Landslide', 'General Emergency'])) {
-    $sql .= " AND ha.hazard_type = :hazard_type";
-    $params[':hazard_type'] = $hazard_type;
-}
-if (in_array($status, ['Normal', 'Alert', 'Warning', 'Critical'])) {
-    $sql .= " AND ha.status = :status";
-    $params[':status'] = $status;
-}
-if ($active_only === '1') {
-    $sql .= " AND ha.is_active = 1";
-} elseif ($active_only === '0') {
-    $sql .= " AND ha.is_active = 0";
-}
-if ($date_from !== '') {
-    $sql .= " AND DATE(ha.issued_at) >= :date_from";
-    $params[':date_from'] = $date_from;
-}
-if ($date_to !== '') {
-    $sql .= " AND DATE(ha.issued_at) <= :date_to";
-    $params[':date_to'] = $date_to;
-}
-
-$sql .= " ORDER BY ha.is_active DESC, ha.issued_at DESC";
-
-$stmt = $conn->prepare($sql);
-$stmt->execute($params);
-
-$alerts = $stmt->fetchAll(PDO::FETCH_ASSOC);
-if (staff_has_purok_scope()) {
-    $assigned = field_assigned_purok($conn);
-    $alerts = array_values(array_filter($alerts, fn($alert) => trim($alert['affected_purok'] ?? '') === '' || normalize_purok($alert['affected_purok']) === $assigned));
-}
-echo json_encode(["success" => true, "data" => $alerts]);
+require_login(['admin', 'relief_personnel', 'field_officer']);
+ba_respond(function () {
+    ba_require_method(['GET']);
+    $conn = (new Database())->connect();
+    $filters = array_map(fn($v) => is_string($v) ? $v : '', $_GET);
+    if (!isset($filters['severity']) && isset($filters['status'])) $filters['severity'] = $filters['status'];
+    $alerts = ba_list($conn, $filters, $_SESSION['role'] === 'admin');
+    if (staff_has_purok_scope()) {
+        $assigned = field_assigned_purok($conn);
+        $alerts = array_values(array_filter($alerts, fn($a) => $a['scope'] === 'barangay' || in_array($assigned, $a['puroks'], true)));
+    }
+    return [200, ['data' => $alerts]];
+});

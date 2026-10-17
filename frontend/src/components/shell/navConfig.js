@@ -56,7 +56,7 @@ export const ADMIN_NAV = [
         children: [
           { to: "/admin/monitoring", label: "Hazard Monitoring" },
           { to: "/admin/map", label: "Barangay Map" },
-          { to: "/admin/hazard-alerts", label: "Hazard Alerts" },
+          { to: "/admin/hazard-alerts", label: "Barangay Alerts" },
         ],
       },
       {

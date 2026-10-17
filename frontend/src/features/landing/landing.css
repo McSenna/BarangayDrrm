@@ -688,3 +688,31 @@
 @media (prefers-reduced-motion: reduce) {
   .live-dot { animation: none; }
 }
+
+/* ---------- Active Barangay Alerts above the Home map (Phase 33) ---------- */
+.lp-alerts {
+  margin-bottom: 16px;
+  border-radius: var(--radius-card-lg);
+}
+/* Zoom buttons: 44px touch targets in the design system's control style. */
+.lm .leaflet-control-zoom {
+  margin: 10px 10px 0 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+.lm .leaflet-control-zoom a {
+  width: 44px;
+  height: 44px;
+  line-height: 42px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-navy);
+  background: var(--color-white);
+}
+.lm .leaflet-control-zoom a:hover { background: var(--color-slate); }
+.lm .leaflet-control-zoom a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -3px; }
+.lm .leaflet-control-zoom a.leaflet-disabled { color: var(--color-text-subtle); background: var(--color-white); }
+/* With the alert panel above the map the right column is taller: keep the headline at the top, not floating mid-height. */
+.lp-hero:has(.lp-alerts) { align-items: start; }

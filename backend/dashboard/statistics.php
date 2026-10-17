@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../lib/requests.php';
 require_once __DIR__ . '/../lib/report_ref.php';
+require_once __DIR__ . '/../sms/sms_helper.php';
 
 require_login(['admin']);
 
@@ -32,11 +33,6 @@ $low_stock_list = $conn->query(
      LIMIT 6"
 )->fetchAll(PDO::FETCH_ASSOC);
 
-// ---------------------------------------------------------------------------
-// Phase 19 — post-disaster workflow overview (added; existing keys unchanged).
-// Every figure is a direct count from the database or from the existing DSS
-// endpoints (run unchanged). Nothing here is estimated.
-// ---------------------------------------------------------------------------
 $count_by = function (string $sql) use ($conn): array {
     $out = [];
     foreach ($conn->query($sql)->fetchAll(PDO::FETCH_ASSOC) as $r) $out[$r['k']] = intval($r['c']);
@@ -121,10 +117,10 @@ $workflow['recent_feedback'] = $conn->query(
      ORDER BY f.created_at DESC LIMIT 4"
 )->fetchAll(PDO::FETCH_ASSOC);
 
-// SMS: whether TextBee is configured (true/false only — never the key) and last-7-day results.
-$sms_config = require __DIR__ . '/../config/sms_api_config.php';
+// SMS readiness and last-7-day results; never expose the API key.
+$sms_state = sms_config_state();
 $workflow['sms'] = [
-    'configured' => !empty($sms_config['SMS_ENABLED']) && trim((string) $sms_config['API_KEY']) !== '' && trim((string) $sms_config['DEVICE_ID']) !== '',
+    'configured' => $sms_state['ready'],
     'last_7_days' => $count_by("SELECT status AS k, COUNT(*) AS c FROM sms_logs WHERE sent_at >= NOW() - INTERVAL 7 DAY GROUP BY status"),
     'failed_total' => intval($conn->query("SELECT COUNT(*) FROM sms_logs WHERE status = 'Failed'")->fetchColumn()),
 ];

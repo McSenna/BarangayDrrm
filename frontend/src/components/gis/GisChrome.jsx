@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Layers, LocateFixed, Maximize } from "lucide-react";
+import { AlertLegendItems } from "../../features/alerts/ActiveAlertsPanel.jsx";
 
 /** Map toolbar (top-left over the map): whole-barangay view, My Location, layers. */
 export function MapToolbar({ onOverview, onMyLocation, locating, layers, onToggleLayer, counts, incidentStatus, onIncidentStatus, markerAccent, onMarkerAccent }) {
@@ -16,7 +17,7 @@ export function MapToolbar({ onOverview, onMyLocation, locating, layers, onToggl
 
   const LAYER_ROWS = [
     ["zones", "Purok flood-zone designation"],
-    ["hazards", `Active hazard alerts (${counts.alerts})`],
+    ["hazards", `Active barangay alerts (${counts.alerts})`],
     ["evacuation", `Evacuation centers (${counts.centers})`],
     ["areas", `Recorded affected areas (${counts.areas})`],
     ["incidents", `Disaster incidents (${counts.incidents} mapped)`],
@@ -83,7 +84,7 @@ export function MapLegend({ layers }) {
       <li><i className="gis-key gis-key--boundary" aria-hidden="true" />Barangay boundary</li>
       <li><span className="gis-house gis-key-house" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg></span>Registered household</li>
       <li><span className="gis-house is-review gis-key-house" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg></span>Location needs review</li>
-      {layers.hazards && <li><i className="gis-key gis-key--hazard" aria-hidden="true" />Active hazard alert in Purok</li>}
+      {layers.hazards && <AlertLegendItems />}
       {layers.areas && <li><i className="gis-key gis-key--area" aria-hidden="true" />In a recorded affected area</li>}
       {layers.evacuation && <li><span className="map-pin map-pin-evac gis-key-pin" aria-hidden="true">E</span>Evacuation center</li>}
       {layers.incidents && <li><span className="map-pin map-pin-incident gis-key-pin gis-key-incident" aria-hidden="true">!</span>Disaster incident</li>}

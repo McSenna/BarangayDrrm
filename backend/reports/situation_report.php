@@ -1,25 +1,5 @@
 <?php
-/**
- * Phase 20 — Automated Disaster Situation Report.
- *
- * GET ?event_id=N                      report for a recorded disaster event
- * GET ?date_from=YYYY-MM-DD&date_to=…  report for a reporting period
- *
- * Every figure is read from the database when the report is generated; nothing
- * is typed in or stored. Where the schema has no data for a figure, the value
- * is null and the section carries the note "Not available in recorded data".
- *
- * SCOPE RULES
- *   Event mode : reports dated start_date..end_date (end_date blank = today);
- *                relief activity (requests, allocations, distributions, SMS)
- *                from start_date up to today, because relief continues after
- *                the disaster itself. Affected areas: the event's recorded areas.
- *   Period mode: everything inside date_from..date_to. Affected areas: areas of
- *                events whose period overlaps the reporting period.
- *   Evacuation and inventory are the CURRENT figures (no history is kept for them).
- *
- * Read-only. Admin only. The DSS is not changed or recalculated here.
- */
+
 require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../lib/allocation_views.php';
@@ -306,7 +286,7 @@ $sms = [
     'by_category' => $pairs($q("SELECT category k, COUNT(*) c FROM sms_logs WHERE sent_at $ts GROUP BY category ORDER BY c DESC", $lp)),
     'pending' => null,
     'pending_note' => NA . ' (SMS are sent immediately; the log has no queue / pending status).',
-    'note' => $sms_total ? '"Sent" means TextBee accepted the message; it is not a delivery confirmation. "Not Configured" means SMS was disabled, so nothing was sent.' : NA,
+    'note' => $sms_total ? '"Sent" means Semaphore accepted the message; it is not a delivery confirmation. "Not Configured" means SMS was disabled, so nothing was sent.' : NA,
 ];
 
 // ------------------------------------------------------------------ executive summary (fixed sentence rules)

@@ -1,48 +1,8 @@
 <?php
-/**
- * Notification service (Phase 19) — one place for in-app notifications and
- * automatic SMS, reused by every endpoint that reports an event to a resident.
- *
- * RULES (enforced here, not in each endpoint):
- *   1. Call it only AFTER the main database action has been committed. It
- *      never throws: any failure is written to the PHP error log and the
- *      caller's response is unaffected, so a failed SMS can never roll back
- *      or break the main action.
- *   2. Duplicate protection: notifications has UNIQUE (user_id, event_key) and
- *      sms_logs has UNIQUE (event_key, recipient_number). Re-running the same
- *      event (e.g. verifying an already-verified report) creates nothing new.
- *   3. SMS goes through the existing TextBee helper (send_sms_batch), so it is
- *      validated, logged (Sent / Failed / Not Configured) and the API key stays
- *      server-side. If TextBee is not configured, the attempt is logged as
- *      "Not Configured" and the action still succeeds.
- *
- * A target is ['user_id' => int|null, 'household_id' => int|null]. A
- * household target notifies its linked resident account (if any) in-app, and
- * texts the household's recorded contact number, falling back to the resident
- * account's number (Phase 25; before, the account number came first).
- *
- * Phase 20: every automatic SMS log row also records an event type (explicit
- * 'event_type' option, or derived from the event key, e.g. "allocation:12:approved"
- * -> ALLOCATION_APPROVED), the household, and the allocation / request IDs
- * when the caller passes them.
- */
 
 require_once __DIR__ . '/../sms/sms_helper.php';
 require_once __DIR__ . '/../config/app_config.php';
 
-/**
- * @param PDO    $conn
- * @param array  $targets   list of ['user_id' => ?, 'household_id' => ?]
- * @param string $event_key stable key for this event, e.g. "report:15:verified"
- * @param string $title     short title (in-app)
- * @param string $message   full message (in-app and SMS)
- * @param array  $options   ['link' => '/resident/...', 'sms' => bool,
- *                           'sms_category' => sms_logs.category value,
- *                           'sent_by' => acting user id,
- *                           'event_type' => e.g. 'ALLOCATION_APPROVED' (optional),
- *                           'allocation_id' => int, 'request_id' => int (optional)]
- * @return array summary ['in_app_created' => int, 'sms' => array|null]
- */
 function dispatch_notification(PDO $conn, array $targets, string $event_key, string $title, string $message, array $options = []): array
 {
     $summary = ['in_app_created' => 0, 'sms' => null];

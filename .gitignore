@@ -9,7 +9,14 @@ dist/
 backend/uploads/*
 !backend/uploads/.htaccess
 !backend/uploads/.gitkeep
+!backend/uploads/reports/
+backend/uploads/reports/*
+!backend/uploads/reports/.htaccess
 
 rm.md
 # Local, randomly generated test credentials and browser captures.
 tests/.user-management-local/
+
+!backend/uploads/delivery/
+backend/uploads/delivery/*
+!backend/uploads/delivery/.htaccess

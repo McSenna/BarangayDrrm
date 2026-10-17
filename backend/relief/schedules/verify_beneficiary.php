@@ -15,6 +15,7 @@ if ($beneficiary_id <= 0) {
 
 $database = new Database();
 $conn = $database->connect();
+staff_require_beneficiary($conn, $beneficiary_id);
 
 // Relief personnel may only verify beneficiaries on schedules assigned to them
 if ($_SESSION['role'] === 'relief_personnel') {

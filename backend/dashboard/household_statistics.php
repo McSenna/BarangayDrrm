@@ -6,10 +6,11 @@ require_login(['admin', 'relief_personnel']);
 
 $database = new Database();
 $conn = $database->connect();
+$household_scope = staff_household_condition($conn, 'h');
 
-$total_households = intval($conn->query("SELECT COUNT(*) FROM households")->fetchColumn());
-$total_population = intval($conn->query("SELECT COALESCE(SUM(number_of_members),0) FROM households")->fetchColumn());
-$vulnerable_population = intval($conn->query("SELECT COALESCE(SUM(vulnerable_members),0) FROM households")->fetchColumn());
+$total_households = intval($conn->query("SELECT COUNT(*) FROM households h WHERE $household_scope")->fetchColumn());
+$total_population = intval($conn->query("SELECT COALESCE(SUM(number_of_members),0) FROM households h WHERE $household_scope")->fetchColumn());
+$vulnerable_population = intval($conn->query("SELECT COALESCE(SUM(vulnerable_members),0) FROM households h WHERE $household_scope")->fetchColumn());
 
 $average_household_size = $total_households > 0
     ? round($total_population / $total_households, 1)
@@ -20,7 +21,7 @@ $per_purok = $conn->query(
             COUNT(*) AS household_count,
             COALESCE(SUM(number_of_members),0) AS population,
             COALESCE(SUM(vulnerable_members),0) AS vulnerable_population
-     FROM households
+     FROM households h WHERE $household_scope
      GROUP BY purok
      ORDER BY purok ASC"
 )->fetchAll(PDO::FETCH_ASSOC);
@@ -33,7 +34,7 @@ $vulnerability_breakdown = $conn->query(
         COALESCE(SUM(pregnant_count),0) AS pregnant,
         COALESCE(SUM(medical_needs_count),0) AS medical_needs,
         COALESCE(SUM(other_vulnerable_count),0) AS other
-     FROM households"
+     FROM households h WHERE $household_scope"
 )->fetch(PDO::FETCH_ASSOC);
 
 echo json_encode([

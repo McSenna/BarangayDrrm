@@ -4,7 +4,7 @@
  *
  * Rule-based and explainable (no AI/ML), matching the project's scope.
  *
- * 1. Households come from priority_list.php (Phase 22 weighted DSS). Every
+ * 1. Households come from priority_list.php (current automatic DSS). Every
  *    assessed household is considered (Phase 25; before, only Moderate+).
  *    They are processed in DSS rank order (score, then the DSS
  *    tie-break rules: severity, damage/needs, vulnerable members, household
@@ -58,23 +58,20 @@ $conn = $database->connect();
 // via a shared included function would be ideal — for simplicity and to avoid
 // over-engineering a capstone project, we re-fetch the already-scored list
 // through a lightweight internal include instead of duplicating the algorithm.
-ob_start();
-include __DIR__ . '/priority_list.php';
-$priority_json = ob_get_clean();
-$priority_response = json_decode($priority_json, true);
-$priority_data = $priority_response['data'] ?? [];
+require_once __DIR__.'/../lib/dss.php';
+$priority_data = dss_scoped_priorities($conn);
 
 // Phase 25 (audit F-ALLOC-02): EVERY eligible (assessed) household is considered,
 // in DSS rank order; Low-priority households come last because their scores are
 // lowest, so they receive only what is left after higher priorities. A low
 // score never makes a household ineligible. Households that cannot be scored
-// yet (Not Assessed) are listed separately as "assess first" — never hidden.
-$priority_households = array_values(array_filter($priority_data, fn($h) => !empty($h['eligible'])));
+// yet (Pending Assessment or For Verification) or are not Ready are listed separately as "assess first" — never hidden.
+$priority_households = array_values(array_filter($priority_data, fn($h) => !empty($h['eligible']) && !empty($h['score_complete'])));
 $assess_first = array_values(array_map(fn($h) => [
     'household_id' => $h['household_id'], 'head_of_family' => $h['head_of_family'], 'purok' => $h['purok'],
     'number_of_members' => $h['number_of_members'], 'vulnerable_members' => $h['vulnerable_members'],
     'reason' => $h['explanation'] ?? 'No usable disaster report or assessment yet.',
-], array_filter($priority_data, fn($h) => empty($h['eligible']))));
+], array_filter($priority_data, fn($h) => empty($h['eligible']) || empty($h['score_complete']))));
 
 // Explicit processing order: the DSS rank (score, then the documented
 // tie-break rules). Stock is handed out in exactly this order.
@@ -143,7 +140,7 @@ try {
          LEFT JOIN users u ON u.user_id = r.rejected_by
          ORDER BY r.rejected_at DESC"
     )->fetchAll(PDO::FETCH_ASSOC);
-    foreach ($rej_rows as $row) {
+    foreach (field_scope_rows($conn, $rej_rows) as $row) {
         $rejected_pairs[$row['household_id'] . '-' . $row['item_id']] = true;
         $rejected_list[] = $row;
     }
@@ -243,6 +240,9 @@ $run = function (string $mode) use ($priority_households, $items, $item_summary,
                 'priority_score' => $h['priority_score'],
                 'rank' => $h['rank'],
                 'needs_review' => $h['needs_review'],
+                'score_complete' => $h['score_complete'], 'provisional' => !$h['score_complete'], 'final_score' => $h['final_score'], 'automatic_subtotal' => $h['automatic_subtotal'], 'maximum_automatic_subtotal' => 80, 'maximum_score' => 100,
+                'criteria' => $h['criteria'], 'score_breakdown' => $h['score_breakdown'], 'assessment_status' => $h['assessment_status'],
+                'assigned_field_officer_name' => $h['assigned_field_officer_name'], 'field_visit_date' => $h['field_visit_date'],
                 'number_of_members' => $h['number_of_members'],
                 'vulnerable_members' => $h['vulnerable_members'],
                 'total_shortage' => array_sum(array_column($item_recommendations, 'shortage')),

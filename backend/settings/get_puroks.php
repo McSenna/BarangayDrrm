@@ -6,6 +6,6 @@
 require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../lib/puroks.php';
 
-require_login(['admin', 'relief_personnel']); // Phase 21: staff only (residents no longer use this data)
+require_login(['admin', 'relief_personnel', 'field_officer']); // Phase 21: staff only (residents no longer use this data)
 
 echo json_encode(["success" => true, "data" => BINITAYAN_PUROKS]);

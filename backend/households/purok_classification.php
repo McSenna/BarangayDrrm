@@ -21,7 +21,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../lib/purok_boundaries.php';
 require_once __DIR__ . '/../lib/flood_zones.php';
 
-require_login(['admin', 'relief_personnel']);
+require_login(['admin', 'relief_personnel', 'field_officer']);
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     http_response_code(405);
     echo json_encode(["success" => false, "message" => "Method not allowed."]);
@@ -52,10 +52,10 @@ foreach (BINITAYAN_PUROKS as $p) {
 }
 $other_stored = ['registered' => 0, 'mapped' => 0, 'unmapped' => 0]; // stored Purok values that are not one of the standard Puroks
 $needs_review = 0;
-foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $h) {
+foreach (field_scope_rows($conn, $st->fetchAll(PDO::FETCH_ASSOC)) as $h) {
     $c = purok_classify($h['purok'], $h['latitude'], $h['longitude'], $b['features']);
     $counts[$c['status']]++;
-    $fs = household_flood_status($c);
+    $fs = household_flood_status_for_purok($h['purok']); // recorded Purok decides (same rule as scoring)
     $flood[$fs]++;
     $review = household_needs_location_review($c);
     if ($review) $needs_review++;
@@ -73,6 +73,7 @@ foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $h) {
         'address' => $h['address'],
         'number_of_members' => intval($h['number_of_members']),
         'flood_status' => $fs,
+        'location_flood_status' => household_flood_status($c), // where the map point lies; location review only
         'needs_review' => $review,
         'latitude' => $h['latitude'] === null ? null : floatval($h['latitude']),
         'longitude' => $h['longitude'] === null ? null : floatval($h['longitude']),

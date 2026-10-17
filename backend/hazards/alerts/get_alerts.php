@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../config/database.php';
 
-require_login(['admin', 'relief_personnel']); // Phase 21: staff only (residents no longer use this data)
+require_login(['admin', 'relief_personnel', 'field_officer']); // Phase 21: staff only (residents no longer use this data)
 
 $database = new Database();
 $conn = $database->connect();
@@ -47,4 +47,9 @@ $sql .= " ORDER BY ha.is_active DESC, ha.issued_at DESC";
 $stmt = $conn->prepare($sql);
 $stmt->execute($params);
 
-echo json_encode(["success" => true, "data" => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+$alerts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+if (staff_has_purok_scope()) {
+    $assigned = field_assigned_purok($conn);
+    $alerts = array_values(array_filter($alerts, fn($alert) => trim($alert['affected_purok'] ?? '') === '' || normalize_purok($alert['affected_purok']) === $assigned));
+}
+echo json_encode(["success" => true, "data" => $alerts]);

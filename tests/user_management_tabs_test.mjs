@@ -41,6 +41,7 @@ try {
   await dialog.locator('input[name="full_name"]').fill('Embedded Personnel');
   await dialog.locator('input[name="email"]').fill('embedded@example.test');
   await dialog.locator('input[name="password"]').fill('EmbeddedPassword12');
+  await dialog.getByLabel('Assigned Purok', { exact: true }).selectOption('Purok 1');
   await dialog.getByRole('button', { name: 'Add Relief Personnel', exact: true }).click();
   await page.locator('tbody').getByText('Embedded Personnel', { exact: true }).waitFor();
   await page.waitForFunction(() => document.querySelector('.users-stat strong')?.textContent === '6');
@@ -48,6 +49,19 @@ try {
   await page.reload();
   await page.locator('tbody').getByText('Embedded Personnel', { exact: true }).waitFor();
   check(new URL(page.url()).searchParams.get('tab') === 'personnel', 'refresh restores selected tab and persisted data');
+  check(await page.locator('tbody tr').filter({ hasText: 'Embedded Personnel' }).getByText('Purok 1', { exact: true }).count() === 1, 'relief assignment persists in account table');
+  const reliefContext = await browser.newContext();
+  check((await reliefContext.request.post(apiBase + 'auth/login.php', { data: { email: 'embedded@example.test', password: 'EmbeddedPassword12' } })).status() === 200, 'new relief officer can sign in');
+  const reliefPage = await reliefContext.newPage();
+  reliefPage.on('pageerror', (e) => errors.push(e.message));
+  await reliefPage.goto(origin + '/personnel');
+  await reliefPage.getByText(/Assigned area: Purok 1/).waitFor();
+  check(true, 'relief dashboard displays assigned Purok');
+  const scopedHouseholds = await (await reliefContext.request.get(apiBase + 'households/get_households.php')).json();
+  check(scopedHouseholds.data.length === 0, 'relief session cannot see fixture household in Purok 3');
+  await reliefPage.setViewportSize({ width: 390, height: 900 });
+  check(await reliefPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'relief dashboard fits mobile viewport');
+  await reliefContext.close();
   await page.getByRole('navigation', { name: 'Users and masterlists' }).getByRole('link', { name: 'Resident masterlist', exact: true }).click();
   await page.getByRole('heading', { name: 'Resident masterlist', exact: true }).waitFor();
   await page.goBack();

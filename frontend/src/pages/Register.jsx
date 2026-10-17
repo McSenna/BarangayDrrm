@@ -39,7 +39,7 @@ export default function Register() {
       <main id="main" tabIndex={-1} className="auth-wrap">
         <div className="auth-card">
           <h2>Create a Resident Account</h2>
-          <div className="sub">Register as a Resident of Barangay Binitayan. Your account must be approved by the barangay before you can sign in. Administrator and Relief Personnel accounts are created by the Barangay Administrator.</div>
+          <div className="sub">Register as a Resident of Barangay Binitayan. Your account must be approved by the barangay before you can sign in. Administrator, Relief Personnel and Field Officer accounts are created by the Barangay Administrator.</div>
 
           {error && <div className="alert alert-error">{error}</div>}
           {success && <div className="alert alert-success" role="status">{success}</div>}

@@ -60,6 +60,7 @@ export const getHouseholdMembers = (household_id) =>
   api.get("households/members/get_members.php", { params: { household_id } });
 export const addHouseholdMember = (data) => api.post("households/members/add_member.php", data);
 export const updateHouseholdMember = (data) => api.put("households/members/update_member.php", data);
+export const verifyHouseholdRoster = (household_id) => api.post("households/members/verify_roster.php", { household_id, confirm_complete: true });
 export const deleteHouseholdMember = (member_id) =>
   api.delete("households/members/delete_member.php", { data: { member_id } });
 
@@ -86,11 +87,24 @@ export const uploadReportPhotos = (report_id, files) => {
   });
 };
 export const deleteReportPhoto = (photo_id) => api.delete("disasters/delete_photo.php", { data: { photo_id } });
-export const reportPhotoUrl = (file_path) => `${BASE_URL}${file_path}`;
+export const reportPhotoUrl = (file_path) => `${BASE_URL}disasters/view_photo.php?path=${encodeURIComponent(file_path)}`;
 
 // Damage assessment
 export const getDamageAssessment = (report_id) => api.get("disasters/get_damage_assessment.php", { params: { report_id } });
 export const saveDamageAssessment = (data) => api.post("disasters/save_damage_assessment.php", data);
+
+// Household visits are assigned by an administrator and assessed by that officer.
+export const getHouseholdAssessments = (params = {}) => api.get("disasters/list_household_assessments.php", { params });
+export const assignHouseholdAssessment = (data) => api.post("disasters/assign_household_assessment.php", data);
+export const submitHouseholdAssessment = (data) => api.post("disasters/submit_household_assessment.php", data);
+export const getHouseholdAssessmentPhotos = (household_id) => api.get("disasters/household_assessment_photos.php", { params: { household_id } });
+export const householdAssessmentPhotoUrl = (photo_id) => `${BASE_URL}disasters/download_household_assessment_photo.php?id=${encodeURIComponent(photo_id)}`;
+export const uploadHouseholdAssessmentPhoto = (household_id, photo) => {
+  const data = new FormData();
+  data.append("household_id", household_id);
+  data.append("photo", photo);
+  return api.post("disasters/household_assessment_photos.php", data, { headers: { "Content-Type": undefined } });
+};
 
 // ---------------------------------------------------------------
 // Inventory
@@ -107,10 +121,8 @@ export const getInventoryLogs = (params = {}) => api.get("inventory/get_logs.php
 // ---------------------------------------------------------------
 // Relief allocation
 // ---------------------------------------------------------------
-export const getAllocations = () => api.get("relief/get_allocations.php");
-// Phase 21: Approved -> Ready for Distribution (verified schedule + location; automated SMS per household).
-export const markAllocationsReady = (data) => api.post("relief/mark_ready.php", data);
-export const createAllocation = (data) => api.post("relief/create_allocation.php", data);
+// Historical per-item allocations (read-only; the workflow functions are at the end of this file).
+export const getLegacyAllocations = () => api.get("relief/get_allocations.php");
 
 // ---------------------------------------------------------------
 // SMS Notifications (Phase 10) — textbee.dev, disabled until configured
@@ -123,16 +135,7 @@ export const getSmsLogs = (params = {}) => api.get("sms/get_logs.php", { params 
 // ---------------------------------------------------------------
 export const getAuditLogs = (params = {}) => api.get("audit/get_logs.php", { params });
 export const getLoginHistory = (params = {}) => api.get("audit/get_login_history.php", { params });
-export const approveAllocation = (allocation_id) =>
-  api.post("relief/approve_allocation.php", { allocation_id });
-// Phase 25: emergency override (reason required), cancellation (reason required), partial receipt.
-export const emergencyOverride = (data) => api.post("relief/emergency_override.php", data);
-export const cancelAllocation = (allocation_id, reason) => api.post("relief/cancel_allocation.php", { allocation_id, reason });
 export const getInventoryReconciliation = () => api.get("reports/inventory_reconciliation.php");
-export const distributeAllocationReceived = (allocation_id, received_quantity, remarks) =>
-  api.post("relief/distribute.php", { allocation_id, received_quantity, remarks });
-export const distributeAllocation = (allocation_id) =>
-  api.post("relief/distribute.php", { allocation_id });
 
 // ---------------------------------------------------------------
 // Dashboard / decision support
@@ -142,9 +145,6 @@ export const getStatistics = () => api.get("dashboard/statistics.php");
 export const getDashboardOverview = (params = {}) => api.get("dashboard/overview.php", { params });
 export const getPriorityList = () => api.get("dashboard/priority_list.php");
 export const getReliefRecommendations = (mode = "full_need") => api.get("dashboard/relief_recommendations.php", { params: { mode } });
-export const approveRecommendation = (data) => api.post("relief/approve_recommendation.php", data);
-export const rejectRecommendation = (data) => api.post("relief/reject_recommendation.php", data);
-export const restoreRecommendation = (data) => api.post("relief/restore_recommendation.php", data);
 
 // ---------------------------------------------------------------
 // Hazard Monitoring (Phase 4) — manual entry by default; API-ready
@@ -229,7 +229,6 @@ export const getReliefRequestDetail = (request_id) => api.get("requests/get_requ
 export const createReliefRequest = (data) => api.post("requests/create_request.php", data);
 export const startRequestReview = (request_id) => api.post("requests/start_review.php", { request_id });
 export const decideReliefRequest = (data) => api.post("requests/decide_request.php", data);
-export const processReliefRequest = (request_id) => api.post("requests/process_request.php", { request_id });
 
 // ---------------------------------------------------------------
 // Phase 19 — Relief Feedback
@@ -265,3 +264,23 @@ export const getSituationReport = (params = {}) => api.get("reports/situation_re
 // SMS status (no secrets) and safe retry of one failed log entry
 export const getSmsStatus = () => api.get("sms/status.php");
 export const retrySms = (sms_id) => api.post("sms/retry.php", { sms_id });
+
+// Relief allocation workflow: field visit → automatic Ready for Distribution → Relief Personnel completion.
+// Points, totals and priorities always come from the server.
+export const saveAssessmentDraft = (data) => api.post("allocations/assessment_draft.php", data);
+export const submitAssessment = (data) => api.post("allocations/assessment_submit.php", data);
+export const getReadyAllocations = (params = {}) => api.get("allocations/ready_list.php", { params });
+export const getAllocation = (id) => api.get("allocations/get.php", { params: { id } });
+export const getAllocations = (params = {}) => api.get("allocations/list.php", { params });
+export const getAllocationHistory = (id) => api.get("allocations/history.php", { params: { id } });
+// body: { completion_key, items: [{ allocation_item_id, released_qty }], recipient_name?, remarks?, proof_photo? }
+export const completeAllocation = (allocation_id, body) => api.post("allocations/complete.php", { allocation_id, ...body });
+export const reopenAllocation = (allocation_id, reason) => api.post("allocations/reopen.php", { allocation_id, reason });
+export const cancelAllocation = (allocation_id, reason) => api.post("allocations/cancel.php", { allocation_id, reason });
+export const adjustPlanned = (allocation_id, items, reason) => api.post("allocations/adjust_planned.php", { allocation_id, items, reason });
+export const startAllocationRound = (household_id) => api.post("allocations/start_round.php", { household_id });
+export const setStandardPackage = (package_id) => api.post("relief/packages/set_standard.php", { package_id });
+// Relief packages (the standard package is planned for every Ready household) and the resident's own rounds.
+export const getReliefPackages = () => api.get("relief/packages/get_packages.php");
+export const createReliefPackage = (data) => api.post("relief/packages/add_package.php", data);
+export const getMyAllocations = () => api.get("allocations/mine.php");

@@ -6,7 +6,17 @@ function rejects($fn, $status, $name) {
     try { $fn(); } catch (UserManagementError $e) { check($e->getCode() === $status, $name); return; }
     throw new Exception("Expected rejection: $name");
 }
+check(um_display_role(['role' => 'resident', 'is_household_head' => 1, 'is_active' => 1]) === 'Head of the family', 'Linked active resident is household head');
+check(um_display_role(['role' => 'resident', 'is_household_head' => 1, 'is_active' => 0]) === 'Head of the family', 'Deactivation preserves household designation');
+check(um_display_role(['role' => 'resident', 'is_household_head' => 0]) === 'Resident', 'Unlinked residents keep their designation');
+check(um_display_role(['role' => 'admin', 'is_household_head' => 1]) === 'Administrator', 'Household links never disguise administrative permissions');
 $valid = ['full_name' => ' Test User ', 'email' => ' Person@example.com ', 'role' => 'resident', 'contact_number' => ''];
+rejects(fn() => um_profile(array_replace($valid, ['role' => 'field_officer'])), 400, 'Field officer assignment required');
+rejects(fn() => um_profile(array_replace($valid, ['role' => 'field_officer', 'assigned_purok' => 'Purok 99'])), 400, 'Unknown assignment rejected');
+rejects(fn() => um_profile($valid + ['assigned_purok' => 'Purok 1']), 400, 'Non-field assignment injection rejected');
+check(um_profile(array_replace($valid, ['role' => 'field_officer', 'assigned_purok' => '5a']))['assigned_purok'] === 'Purok 5A', 'Assignment normalized to standard Purok');
+rejects(fn() => um_profile(array_replace($valid, ['role' => 'relief_personnel'])), 400, 'Relief personnel assignment required');
+check(um_profile(array_replace($valid, ['role' => 'relief_personnel', 'assigned_purok' => 'Purok 1']))['assigned_purok'] === 'Purok 1', 'Relief assignment accepted');
 check(um_profile($valid)['email'] === 'Person@example.com', 'Preserve existing email casing and trim');
 check(um_profile($valid)['full_name'] === 'Test User', 'Trim name');
 rejects(fn() => um_profile($valid + ['is_active' => 1]), 400, 'Reject injected activation field');
@@ -29,4 +39,5 @@ check(um_csv_cell('Ordinary, "quoted" name') === 'Ordinary, "quoted" name', 'CSV
 $row = $valid + ['user_id' => 3, 'is_active' => 1];
 check(um_version($row) !== um_version(array_replace($row, ['role' => 'admin'])), 'Version detects role change');
 check(um_version($row) === um_version($row + ['last_login' => 'today']), 'Login does not conflict with profile editing');
+check(um_version($row + ['assigned_purok' => 'Purok 1']) !== um_version($row + ['assigned_purok' => 'Purok 2']), 'Assignment participates in stale-edit check');
 echo "PASS: $checks user management checks\n";

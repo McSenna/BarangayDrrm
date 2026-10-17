@@ -6,8 +6,9 @@
  *   1. the stock balance            relief_items.quantity
  *   2. the stock ledger             SUM(inventory_logs.quantity_change)
  *                                   (Stock In / Donation +, Stock Out -, Adjustment ±)
- *   3. the allocations              reserved (Approved), received (Distributed),
- *                                   cancelled (released, never deducted)
+ *   3. the allocations              released in completed workflow allocations plus
+ *                                   the historical Distributed per-item allocations;
+ *                                   Ready plans are shown but reserve nothing
  * and flags any difference:
  *   - ledger_matches_stock          ledger balance = stock balance
  *   - distribution_matches_ledger   quantity received in Distributed allocations
@@ -31,15 +32,20 @@ $items = $conn->query("SELECT item_id, item_name, category, unit, quantity FROM 
 $ledger = $conn->prepare(
     "SELECT COALESCE(SUM(quantity_change), 0) balance,
             COALESCE(SUM(CASE WHEN quantity_change > 0 AND log_type IN ('Stock In','Donation') THEN quantity_change ELSE 0 END), 0) received_in,
-            COALESCE(SUM(CASE WHEN log_type = 'Stock Out' AND reference LIKE 'Relief distribution%' THEN -quantity_change ELSE 0 END), 0) out_distribution,
-            COALESCE(SUM(CASE WHEN log_type = 'Stock Out' AND (reference IS NULL OR reference NOT LIKE 'Relief distribution%') THEN -quantity_change ELSE 0 END), 0) out_other,
+            COALESCE(SUM(CASE WHEN log_type = 'Stock Out' AND reference LIKE 'Relief distribution%' THEN -quantity_change WHEN log_type = 'Stock Out' AND allocation_ref IS NOT NULL THEN -quantity_change ELSE 0 END), 0) out_distribution,
+            COALESCE(SUM(CASE WHEN log_type = 'Stock Out' AND (reference IS NULL OR reference NOT LIKE 'Relief distribution%') AND allocation_ref IS NULL THEN -quantity_change ELSE 0 END), 0) out_other,
             COALESCE(SUM(CASE WHEN log_type = 'Adjustment' THEN quantity_change ELSE 0 END), 0) adjustments,
             COUNT(*) entries
      FROM inventory_logs WHERE item_id = :id"
 );
+$workflow = $conn->prepare(
+    "SELECT COALESCE(SUM(CASE WHEN a.status = 'READY_FOR_DISTRIBUTION' THEN ai.planned_qty ELSE 0 END), 0) ready,
+            COALESCE(SUM(CASE WHEN a.status = 'COMPLETED' THEN COALESCE(ai.released_qty, 0) ELSE 0 END), 0) released,
+            COALESCE(SUM(CASE WHEN a.status = 'COMPLETED' THEN ai.planned_qty ELSE 0 END), 0) planned_completed
+     FROM household_allocation_items ai JOIN household_allocations a ON a.allocation_id = ai.allocation_id WHERE ai.item_id = :id"
+);
 $alloc = $conn->prepare(
-    "SELECT COALESCE(SUM(CASE WHEN a.status = 'Approved' THEN a.quantity ELSE 0 END), 0) reserved,
-            COALESCE(SUM(CASE WHEN a.status = 'Approved' AND a.ready_at IS NOT NULL THEN a.quantity ELSE 0 END), 0) ready,
+    "SELECT 0 reserved,
             COALESCE(SUM(CASE WHEN a.status = 'Pending' THEN a.quantity ELSE 0 END), 0) pending,
             COALESCE(SUM(CASE WHEN a.status = 'Distributed' THEN $received_expr ELSE 0 END), 0) distributed_received,
             COALESCE(SUM(CASE WHEN a.status = 'Distributed' THEN a.quantity ELSE 0 END), 0) distributed_allocated,
@@ -55,6 +61,11 @@ foreach ($items as $it) {
     $l = array_map('intval', $ledger->fetch(PDO::FETCH_ASSOC));
     $alloc->execute([':id' => $it['item_id']]);
     $a = array_map('intval', $alloc->fetch(PDO::FETCH_ASSOC));
+    $workflow->execute([':id' => $it['item_id']]);
+    $w = array_map('intval', $workflow->fetch(PDO::FETCH_ASSOC));
+    $a['ready'] = $w['ready'];
+    $a['distributed_received'] += $w['released'];
+    $a['distributed_allocated'] += $w['planned_completed'];
     $stock = intval($it['quantity']);
     $checks = [
         'ledger_matches_stock' => $l['balance'] === $stock,
@@ -89,5 +100,5 @@ echo json_encode([
     "generated_at" => date('Y-m-d H:i:s'),
     "items" => $rows,
     "summary" => ["items" => count($rows), "items_with_differences" => $issues],
-    "method" => "Stock balance vs. stock ledger vs. allocations. Available = stock - reserved (Approved, not yet distributed). Recommendations are not counted.",
+    "method" => "Stock balance vs. stock ledger vs. distributions (completed allocations and historical Distributed rows). Nothing is reserved before distribution, so Available = stock; Ready shows planned quantities only.",
 ]);

@@ -29,11 +29,8 @@ $vulnerability_breakdown = $conn->query(
 
 // Reuse the existing priority scoring algorithm (single source of truth) rather
 // than duplicating it — same technique used by the Phase 6 recommendation engine.
-ob_start();
-include __DIR__ . '/../dashboard/priority_list.php';
-$priority_json = ob_get_clean();
-$priority_response = json_decode($priority_json, true);
-$priority_data = $priority_response['data'] ?? [];
+require_once __DIR__.'/../lib/dss.php';
+$priority_data = dss_scoped_priorities($conn);
 
 $high_priority = array_values(array_filter($priority_data, fn($h) => in_array($h['priority_level'], ['High Priority', 'Critical Priority'])));
 usort($high_priority, fn($a, $b) => $a['rank'] <=> $b['rank']);
@@ -47,6 +44,9 @@ echo json_encode([
         "vulnerable_household_count" => intval($vulnerable_stmt['household_count']),
         "total_vulnerable_members" => intval($vulnerable_stmt['total_vulnerable_members']),
         "vulnerability_breakdown" => $vulnerability_breakdown,
+        "current_priorities" => $priority_data,
+        "incomplete_scoring_households" => array_values(array_filter($priority_data, fn($r)=>!$r['score_complete'])),
+        "scoring_method" => dss_method_summary(),
         "high_priority_count" => count($high_priority),
         "high_priority_households" => array_slice($high_priority, 0, 50),
     ]

@@ -13,6 +13,7 @@ if ($beneficiary_id <= 0) {
 
 $database = new Database();
 $conn = $database->connect();
+staff_require_beneficiary($conn, $beneficiary_id);
 
 $stmt = $conn->prepare(
     "SELECT dr.*, u.full_name AS submitted_by_name

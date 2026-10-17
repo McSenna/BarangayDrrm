@@ -4,10 +4,12 @@ import { Link } from "react-router-dom";
 import DataTable from "../../components/DataTable.jsx";
 import Modal from "../../components/Modal.jsx";
 import PurokSelect from "../../components/PurokSelect.jsx";
+import HouseholdScoreSummary from "../../components/HouseholdScoreSummary.jsx";
+import { PRIORITY_BADGE } from "../../config/priority.js";
 import { exportToCsv } from "../../utils/exportCsv.js";
 import {
   getHouseholds, addHousehold, updateHousehold, deleteHousehold, getUsers,
-  getHouseholdMembers, addHouseholdMember, deleteHouseholdMember, getPriorityList,
+  getHouseholdMembers, addHouseholdMember, updateHouseholdMember, deleteHouseholdMember, verifyHouseholdRoster, getPriorityList,
 } from "../../services/api.jsx";
 import binitayanBoundary from "../../data/binitayanBoundary.json";
 import { isPointInGeoJson } from "../../utils/pointInPolygon.js";
@@ -19,13 +21,14 @@ import { isPointInGeoJson } from "../../utils/pointInPolygon.js";
 const OUTSIDE_BOUNDARY_MESSAGE = "The coordinates entered are outside Barangay Binitayan or are not valid numbers. Please check the latitude and longitude.";
 
 const EMPTY_FORM = {
-  head_of_family: "", purok: "", address: "", number_of_members: 1,
+  head_of_family: "", purok: "", address: "", number_of_members: 1, vulnerable_members: 0,
   children_count: 0, seniors_count: 0, pwd_count: 0, pregnant_count: 0,
   medical_needs_count: 0, other_vulnerable_count: 0,
   contact_number: "", latitude: "", longitude: "", user_id: "",
 };
 
-const EMPTY_MEMBER = { full_name: "", relationship: "", age: "" };
+const MEMBER_FLAGS = [["is_child", "Child (under 18)"], ["is_senior", "Senior (60+)"], ["is_pwd", "Person with disability"], ["is_pregnant", "Pregnant"], ["has_medical_needs", "Medical needs"], ["is_other_vulnerable", "Other vulnerability"]];
+const EMPTY_MEMBER = { full_name: "", relationship: "", age: "", ...Object.fromEntries(MEMBER_FLAGS.map(([key]) => [key, ""])), verify_vulnerability: false };
 
 export default function Households() {
   const [households, setHouseholds] = useState([]);
@@ -37,11 +40,16 @@ export default function Households() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [countsVerified, setCountsVerified] = useState(false);
 
   const [detailRow, setDetailRow] = useState(null);
   const [members, setMembers] = useState([]);
   const [memberForm, setMemberForm] = useState(EMPTY_MEMBER);
   const [membersLoading, setMembersLoading] = useState(false);
+  const [memberProfile, setMemberProfile] = useState(null);
+  const [editingMember, setEditingMember] = useState(null);
+  const [memberBusy, setMemberBusy] = useState(false);
+  const [memberError, setMemberError] = useState("");
 
   // filters
   const [search, setSearch] = useState("");
@@ -84,12 +92,13 @@ export default function Households() {
     return households.filter((h) => priorityByHousehold[h.household_id]?.priority_level === priorityFilter);
   }, [households, priorityByHousehold, priorityFilter]);
 
-  const openAdd = () => { setForm(EMPTY_FORM); setEditingId(null); setModalOpen(true); };
+  const openAdd = () => { setForm(EMPTY_FORM); setCountsVerified(false); setEditingId(null); setModalOpen(true); };
 
   const openEdit = (row) => {
     setForm({
       head_of_family: row.head_of_family, purok: row.purok, address: row.address,
       number_of_members: row.number_of_members,
+      vulnerable_members: row.vulnerable_members,
       children_count: row.children_count, seniors_count: row.seniors_count, pwd_count: row.pwd_count,
       pregnant_count: row.pregnant_count, medical_needs_count: row.medical_needs_count,
       other_vulnerable_count: row.other_vulnerable_count,
@@ -97,13 +106,11 @@ export default function Households() {
       user_id: row.user_id ?? "",
     });
     setEditingId(row.household_id);
+    setCountsVerified(Boolean(row.roster_verified_at && row.roster_verified_by));
     setModalOpen(true);
   };
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
-
-  const totalVulnerable = ["children_count", "seniors_count", "pwd_count", "pregnant_count", "medical_needs_count", "other_vulnerable_count"]
-    .reduce((sum, key) => sum + (Number(form[key]) || 0), 0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -153,10 +160,14 @@ export default function Households() {
   const openDetail = async (row) => {
     setDetailRow(row);
     setMemberForm(EMPTY_MEMBER);
+    setEditingMember(null); setMemberError(""); setMemberProfile(null);
     setMembersLoading(true);
     try {
       const res = await getHouseholdMembers(row.household_id);
       setMembers(res.data.data);
+      setMemberProfile(res.data.profile);
+    } catch (err) {
+      setMembers([]); setMemberError(err.response?.data?.message || "Could not load members. Reopen the household to try again.");
     } finally {
       setMembersLoading(false);
     }
@@ -165,21 +176,40 @@ export default function Households() {
   const handleAddMember = async (e) => {
     e.preventDefault();
     if (!memberForm.full_name.trim()) return;
+    setMemberBusy(true); setMemberError("");
     try {
-      await addHouseholdMember({ household_id: detailRow.household_id, ...memberForm });
+      const data = { household_id: detailRow.household_id, ...memberForm, ...Object.fromEntries(MEMBER_FLAGS.map(([key]) => [key, memberForm[key] === "" ? null : Number(memberForm[key])])) };
+      if (editingMember) await updateHouseholdMember({ ...data, member_id: editingMember });
+      else await addHouseholdMember(data);
       setMemberForm(EMPTY_MEMBER);
+      setEditingMember(null);
       const res = await getHouseholdMembers(detailRow.household_id);
       setMembers(res.data.data);
+      setMemberProfile(res.data.profile);
+      load();
     } catch (err) {
-      alert(err.response?.data?.message || "We couldn't add the household member. Please try again.");
-    }
+      setMemberError(err.response?.data?.message || "Could not save the member. Please try again.");
+    } finally { setMemberBusy(false); }
   };
 
   const handleDeleteMember = async (member_id) => {
     if (!confirm("Remove this household member?")) return;
-    await deleteHouseholdMember(member_id);
-    const res = await getHouseholdMembers(detailRow.household_id);
-    setMembers(res.data.data);
+    setMemberBusy(true); setMemberError("");
+    try {
+      await deleteHouseholdMember(member_id);
+      const res = await getHouseholdMembers(detailRow.household_id);
+      setMembers(res.data.data); setMemberProfile(res.data.profile); load();
+    } catch (err) { setMemberError(err.response?.data?.message || "Could not remove the member."); }
+    finally { setMemberBusy(false); }
+  };
+
+  const handleVerifyRoster = async () => {
+    setMemberBusy(true); setMemberError("");
+    try {
+      const res = await verifyHouseholdRoster(detailRow.household_id);
+      setMemberProfile(res.data.profile); load();
+    } catch (err) { setMemberError(err.response?.data?.message || "Could not verify the roster."); }
+    finally { setMemberBusy(false); }
   };
 
   const resetFilters = () => {
@@ -195,8 +225,8 @@ export default function Households() {
         { key: "purok", label: "Purok" },
         { key: "address", label: "Address" },
         { key: "contact_number", label: "Contact Number" },
-        { key: "number_of_members", label: "Household Members" },
-        { key: "vulnerable_members", label: "Vulnerable Members" },
+        { key: "number_of_members", label: "Verified Household Members", render: r => priorityByHousehold[r.household_id]?.number_of_members ?? "Needs verification" },
+        { key: "vulnerable_members", label: "Distinct Vulnerable People", render: r => priorityByHousehold[r.household_id]?.vulnerable_members ?? "Needs verification" },
         { key: "children_count", label: "Children" },
         { key: "seniors_count", label: "Senior Citizens" },
         { key: "pwd_count", label: "Persons with Disabilities" },
@@ -259,6 +289,8 @@ export default function Households() {
               <option value="Moderate Priority">Moderate</option>
               <option value="High Priority">High</option>
               <option value="Critical Priority">Critical</option>
+              <option value="Pending Assessment">Pending assessment</option>
+              <option value="For Verification">For verification</option>
             </select>
           </div>
         </div>
@@ -291,8 +323,8 @@ export default function Households() {
               { key: "priority", label: "Priority Level", render: (r) => {
                 const p = priorityByHousehold[r.household_id];
                 if (!p) return "—";
-                const cls = { "Low Priority": "badge-low", "Moderate Priority": "badge-medium", "High Priority": "badge-high", "Critical Priority": "badge-critical" }[p.priority_level];
-                return <span className={`badge ${cls}`}>{p.priority_level}</span>;
+                const cls = PRIORITY_BADGE[p.priority_level];
+                return <span className={`badge ${cls}`}>{p.priority_level}{p.final_score != null ? ` (${p.final_score}/100)` : ""}</span>;
               }},
               { key: "actions", label: "Actions", render: (row) => (
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -339,47 +371,47 @@ export default function Households() {
               </select>
             </div>
             <div className="form-group">
-              <label>Number of Household Members</label>
-              <input type="number" min="1" name="number_of_members" value={form.number_of_members} onChange={handleChange} required />
+              <label>Reported household size</label>
+              <input type="number" min="1" step="1" name="number_of_members" value={form.number_of_members} onChange={handleChange} required readOnly={countsVerified} />
             </div>
-
-            <p style={{ fontWeight: 600, fontSize: 13.5, margin: "16px 0 8px" }}>Vulnerable Members</p>
+            <p style={{ fontWeight: 600, fontSize: 13.5, margin: "16px 0 8px" }}>{countsVerified ? "Verified roster totals" : "Reported vulnerability counts (unverified)"}</p>
             <p style={{ fontSize: 12.5, color: "var(--color-ink-soft)", margin: "-4px 0 8px" }}>
-              Enter the number of household members in each group.
+              {countsVerified ? "These totals come from the verified member roster. Change individual members in household details, then verify the roster again." : "Reported totals are kept for reference. Priority scoring uses the complete, verified member roster. One person may appear in several categories; do not add categories to count distinct people."}
             </p>
+            <div className="form-group">
+              <label>Reported distinct vulnerable people</label>
+              <input type="number" min="0" max={form.number_of_members} step="1" name="vulnerable_members" value={form.vulnerable_members} onChange={handleChange} readOnly={countsVerified} />
+            </div>
             <div className="form-row">
               <div className="form-group">
                 <label>Children</label>
-                <input type="number" min="0" name="children_count" value={form.children_count} onChange={handleChange} />
+                <input type="number" min="0" max={form.number_of_members} step="1" name="children_count" value={form.children_count} onChange={handleChange} readOnly={countsVerified} />
               </div>
               <div className="form-group">
                 <label>Senior Citizens (60 and above)</label>
-                <input type="number" min="0" name="seniors_count" value={form.seniors_count} onChange={handleChange} />
+                <input type="number" min="0" max={form.number_of_members} step="1" name="seniors_count" value={form.seniors_count} onChange={handleChange} readOnly={countsVerified} />
               </div>
             </div>
             <div className="form-row">
               <div className="form-group">
                 <label>Persons with Disabilities</label>
-                <input type="number" min="0" name="pwd_count" value={form.pwd_count} onChange={handleChange} />
+                <input type="number" min="0" max={form.number_of_members} step="1" name="pwd_count" value={form.pwd_count} onChange={handleChange} readOnly={countsVerified} />
               </div>
               <div className="form-group">
                 <label>Pregnant Members</label>
-                <input type="number" min="0" name="pregnant_count" value={form.pregnant_count} onChange={handleChange} />
+                <input type="number" min="0" max={form.number_of_members} step="1" name="pregnant_count" value={form.pregnant_count} onChange={handleChange} readOnly={countsVerified} />
               </div>
             </div>
             <div className="form-row">
               <div className="form-group">
                 <label>Persons with Medical Needs</label>
-                <input type="number" min="0" name="medical_needs_count" value={form.medical_needs_count} onChange={handleChange} />
+                <input type="number" min="0" max={form.number_of_members} step="1" name="medical_needs_count" value={form.medical_needs_count} onChange={handleChange} readOnly={countsVerified} />
               </div>
               <div className="form-group">
                 <label>Other Vulnerable Members</label>
-                <input type="number" min="0" name="other_vulnerable_count" value={form.other_vulnerable_count} onChange={handleChange} />
+                <input type="number" min="0" max={form.number_of_members} step="1" name="other_vulnerable_count" value={form.other_vulnerable_count} onChange={handleChange} readOnly={countsVerified} />
               </div>
             </div>
-            <p style={{ fontSize: 13, color: "var(--color-ink-soft)", marginTop: -6 }}>
-              Total vulnerable members: <strong>{totalVulnerable}</strong>
-            </p>
 
             <p style={{ fontWeight: 600, fontSize: 13.5, margin: "16px 0 8px" }}>Location Coordinates (optional)</p>
             <p style={{ fontSize: 12.5, color: "var(--color-ink-soft)", margin: "-4px 0 8px" }}>
@@ -408,7 +440,8 @@ export default function Households() {
         <Modal title={`Household Details — ${detailRow.head_of_family}`} onClose={() => setDetailRow(null)}>
           <p><strong>Purok:</strong> {detailRow.purok}</p>
           <p><strong>Address:</strong> {detailRow.address}</p>
-          <p><strong>Household Members:</strong> {detailRow.number_of_members} &nbsp; <strong>Vulnerable Members:</strong> {detailRow.vulnerable_members}</p>
+          <p><strong>Verified household members:</strong> {memberProfile?.size ?? "Needs verification"} &nbsp; <strong>Distinct vulnerable people:</strong> {memberProfile?.vulnerable ?? "Needs verification"}</p>
+          <HouseholdScoreSummary key={`${detailRow.household_id}-${memberProfile?.complete}-${members.length}`} householdId={detailRow.household_id} />
           <p><strong>Contact Number:</strong> {detailRow.contact_number || "—"}</p>
           <p><strong>Coordinates:</strong> {detailRow.latitude ?? "—"}, {detailRow.longitude ?? "—"}{" "}
             {/* GIS map: view this household's marker, or assign its location by clicking the map. */}
@@ -417,18 +450,21 @@ export default function Households() {
               : <Link className="btn-text" to={`/admin/map?assign=${detailRow.household_id}`}>Assign location on map</Link>}
           </p>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "10px 0" }}>
-            {detailRow.children_count > 0 && <span className="badge badge-medium">Children: {detailRow.children_count}</span>}
-            {detailRow.seniors_count > 0 && <span className="badge badge-medium">Senior Citizens: {detailRow.seniors_count}</span>}
-            {detailRow.pwd_count > 0 && <span className="badge badge-medium">PWD: {detailRow.pwd_count}</span>}
-            {detailRow.pregnant_count > 0 && <span className="badge badge-medium">Pregnant: {detailRow.pregnant_count}</span>}
-            {detailRow.medical_needs_count > 0 && <span className="badge badge-medium">Medical Needs: {detailRow.medical_needs_count}</span>}
-            {detailRow.other_vulnerable_count > 0 && <span className="badge badge-medium">Other Vulnerable: {detailRow.other_vulnerable_count}</span>}
-          </div>
+          {memberProfile?.complete && <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "10px 0" }}>
+            {MEMBER_FLAGS.map(([key,label]) => {
+              const count = members.filter((person) => Number(person[key]) === 1).length;
+              return count > 0 ? <span key={key} className="badge badge-medium">{label}: {count}</span> : null;
+            })}
+          </div>}
 
           <hr style={{ margin: "14px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
 
           <p style={{ fontWeight: 600, marginBottom: 8 }}>Household Members</p>
+          <p>List every person, including {detailRow.head_of_family} exactly once with relationship Head. Verify each person's vulnerability information, then attest that the roster is complete.</p>
+          {memberError && <div className="alert alert-error" role="alert">{memberError}</div>}
+          {memberProfile && <div className={`alert ${memberProfile.complete ? "alert-success" : "alert-warning"}`} role="status">
+            {memberProfile.complete ? "Complete roster verified. Each vulnerable person is counted once." : memberProfile.reasons.join(" ")}
+          </div>}
           {membersLoading ? (
             <div className="loading-text">Loading members…</div>
           ) : (
@@ -437,8 +473,12 @@ export default function Households() {
                 { key: "full_name", label: "Name" },
                 { key: "relationship", label: "Relationship", render: (m) => m.relationship || "—" },
                 { key: "age", label: "Age", render: (m) => m.age ?? "—" },
+                { key: "verified", label: "Vulnerability", render: (m) => m.vulnerability_verified_at ? (MEMBER_FLAGS.filter(([key]) => Number(m[key]) === 1).map(([,label]) => label).join(", ") || "Verified: none") : "Needs verification" },
                 { key: "actions", label: "", render: (m) => (
-                  <button className="btn btn-danger btn-sm" onClick={() => handleDeleteMember(m.member_id)}>Remove</button>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button className="btn btn-ghost btn-sm" disabled={memberBusy} onClick={() => { setEditingMember(m.member_id); setMemberError(""); setMemberForm({ ...EMPTY_MEMBER, ...m, age: m.age ?? "", ...Object.fromEntries(MEMBER_FLAGS.map(([key]) => [key, m[key] == null ? "" : String(m[key])])), verify_vulnerability: false }); }}>Edit</button>
+                    <button className="btn btn-danger btn-sm" disabled={memberBusy} onClick={() => handleDeleteMember(m.member_id)}>Remove</button>
+                  </div>
                 )},
               ]}
               rows={members}
@@ -446,21 +486,42 @@ export default function Households() {
             />
           )}
 
-          <form onSubmit={handleAddMember} style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <form onSubmit={handleAddMember} style={{ marginTop: 12, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
             <div className="form-group" style={{ marginBottom: 0, flex: "1 1 140px" }}>
-              <label>Name</label>
-              <input value={memberForm.full_name} onChange={(e) => setMemberForm({ ...memberForm, full_name: e.target.value })} placeholder="Full name" />
+              <label htmlFor="member-name">Name</label>
+              <input id="member-name" required maxLength={150} value={memberForm.full_name} onChange={(e) => setMemberForm({ ...memberForm, full_name: e.target.value })} placeholder="Full name" />
             </div>
             <div className="form-group" style={{ marginBottom: 0, flex: "1 1 120px" }}>
-              <label>Relationship</label>
-              <input value={memberForm.relationship} onChange={(e) => setMemberForm({ ...memberForm, relationship: e.target.value })} placeholder="e.g. Spouse" />
+              <label htmlFor="member-relationship">Relationship</label>
+              <input id="member-relationship" required maxLength={100} value={memberForm.relationship} onChange={(e) => setMemberForm({ ...memberForm, relationship: e.target.value })} placeholder="Head, Spouse, Child…" />
             </div>
             <div className="form-group" style={{ marginBottom: 0, flex: "0 1 80px" }}>
-              <label>Age</label>
-              <input type="number" min="0" value={memberForm.age} onChange={(e) => setMemberForm({ ...memberForm, age: e.target.value })} />
+              <label htmlFor="member-age">Age (optional)</label>
+              <input id="member-age" type="number" min="0" max="150" step="1" value={memberForm.age} onChange={(e) => setMemberForm({ ...memberForm, age: e.target.value })} />
             </div>
-            <button type="submit" className="btn btn-secondary btn-sm">+ Add Member</button>
+            <fieldset style={{ flex: "1 1 100%", minWidth: 0 }}>
+              <legend>Vulnerability information</legend>
+              <p>Age determines child and senior status. If age is unknown, answer those categories explicitly.</p>
+              <div className="form-row" style={{ flexWrap: "wrap" }}>
+                {MEMBER_FLAGS.map(([key,label]) => {
+                  const fromAge = memberForm.age !== "" && ["is_child", "is_senior"].includes(key);
+                  const value = fromAge ? String(key === "is_child" ? Number(memberForm.age) < 18 ? 1 : 0 : Number(memberForm.age) >= 60 ? 1 : 0) : memberForm[key];
+                  return <div className="form-group" style={{ flex: "1 1 160px" }} key={key}>
+                    <label htmlFor={`member-${key}`}>{label}</label>
+                    <select id={`member-${key}`} value={value} disabled={fromAge || memberBusy} onChange={(e) => setMemberForm({ ...memberForm, [key]: e.target.value })}>
+                      <option value="">Unknown</option><option value="0">No</option><option value="1">Yes</option>
+                    </select>
+                  </div>;
+                })}
+              </div>
+              <label style={{ display: "flex", alignItems: "center", gap: 8 }}><input style={{ width: "auto" }} type="checkbox" checked={memberForm.verify_vulnerability} onChange={(e) => setMemberForm({ ...memberForm, verify_vulnerability: e.target.checked })} />I verified all vulnerability information for this person.</label>
+            </fieldset>
+            <button disabled={memberBusy} type="submit" className="btn btn-secondary">{memberBusy ? "Saving…" : editingMember ? "Save member" : "+ Add member"}</button>
+            {editingMember && <button type="button" className="btn btn-ghost" onClick={() => { setEditingMember(null); setMemberForm(EMPTY_MEMBER); }}>Cancel edit</button>}
           </form>
+          <hr style={{ margin: "20px 0" }} />
+          <p>By verifying, you confirm that every distinct person in this household is listed and the household head appears exactly once. Changes to members require verification again.</p>
+          <button type="button" className="btn btn-primary" disabled={memberBusy || membersLoading || !members.length || memberProfile?.complete} onClick={handleVerifyRoster}>{memberProfile?.complete ? "Roster verified" : "Verify complete household roster"}</button>
         </Modal>
       )}
     </>

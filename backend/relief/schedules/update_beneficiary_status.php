@@ -58,6 +58,14 @@ $new_status = is_string($data['status'] ?? null) ? $data['status'] : '';
 $remarks = trim((string)($data['remarks'] ?? ''));
 $recipient_name = trim((string)($data['recipient_name'] ?? ''));
 
+// Retired by the relief allocation workflow: relief (and its stock) is handed out only through
+// allocations/complete.php. Schedules keep their logistics statuses but no longer create allocations.
+if ($new_status === 'Delivered') {
+    http_response_code(410);
+    echo json_encode(["success" => false, "message" => "This action was replaced by the new allocation workflow."]);
+    exit();
+}
+
 $valid_statuses = ['Prepared', 'Dispatched', 'Delivered', 'Cancelled'];
 if ($beneficiary_id <= 0 || !in_array($new_status, $valid_statuses, true)) {
     http_response_code(400);
@@ -73,6 +81,7 @@ if ($new_status === 'Delivered' && $recipient_name === '') {
 
 $database = new Database();
 $conn = $database->connect();
+staff_require_beneficiary($conn, $beneficiary_id);
 
 /** Roll back, send an error response, and stop. */
 function fail($conn, $code, $message)

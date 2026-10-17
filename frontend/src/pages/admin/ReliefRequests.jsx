@@ -7,8 +7,8 @@ import usePolling from "../../hooks/usePolling.js";
 import { StatusBadge, URGENCY_BADGE } from "../../config/requestStatus.jsx";
 import { getReliefRequests } from "../../services/api.jsx";
 import RecordReliefRequestModal from "../../components/RecordReliefRequestModal.jsx";
+import { PRIORITY_BADGE } from "../../config/priority.js";
 
-const PRIORITY_BADGE = { "Low Priority": "badge-low", "Moderate Priority": "badge-medium", "High Priority": "badge-high", "Critical Priority": "badge-critical" };
 const STATUSES = ["Pending", "Under Review", "Approved", "Partially Approved", "Allocated", "Distributed", "Rejected"];
 
 /**

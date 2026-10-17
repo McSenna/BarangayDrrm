@@ -97,7 +97,7 @@ $priority = dss_priority_by_household();
 foreach ($rows as &$row) {
     $p = $priority[intval($row['household_id'])] ?? null;
     $row['priority_score'] = $p['priority_score'] ?? null;
-    $row['priority_level'] = $p['priority_level'] ?? null;
+    $row['priority_level'] = $p['priority_level'] ?? null; $row['provisional'] = !($p['score_complete'] ?? false); $row['score_complete'] = $p['score_complete'] ?? false;
 }
 unset($row);
 

@@ -87,7 +87,7 @@ function dss_snapshot_for_household(PDO $conn, int $household_id): array
         'dss_score' => $row && $row['priority_score'] !== null ? intval($row['priority_score']) : null,
         'dss_category' => $row['priority_level'] ?? DSS_NOT_ASSESSED,
         'dss_rank' => $row && $row['rank'] !== null ? intval($row['rank']) : null,
-        'dss_ratings' => $row && !empty($row['ratings']) ? json_encode($row['ratings']) : null,
+        'dss_ratings' => $row ? json_encode(['points'=>$row['score_breakdown'],'complete'=>$row['score_complete'],'provisional'=>true,'max'=>80,'damage'=>null]) : null,
         'dss_model_version' => DSS_MODEL_VERSION,
     ];
 }

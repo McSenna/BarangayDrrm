@@ -119,6 +119,9 @@ function require_login($allowed_roles = [])
         exit();
     }
     $_SESSION['role'] = $row['role'];
+    require_once __DIR__ . '/../lib/field_scope.php';
+    if (staff_has_purok_scope()) $_SESSION['assigned_purok'] = field_assigned_purok($auth_conn);
+    else unset($_SESSION['assigned_purok']);
     if (!empty($allowed_roles) && !in_array($_SESSION['role'], $allowed_roles)) {
         http_response_code(403);
         echo json_encode(["success" => false, "message" => "You do not have permission to view this page."]);

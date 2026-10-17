@@ -12,6 +12,7 @@
 export const REDIRECT_BY_ROLE = {
   admin: "/admin",
   relief_personnel: "/personnel",
+  field_officer: "/field",
   resident: "/resident",
 };
 
@@ -85,6 +86,9 @@ export function loginErrorFor(error) {
     return { kind: "throttled", message: `Too many attempts. Try again in ${minutes} ${minutes === 1 ? "minute" : "minutes"}.` };
   }
   if (status === 403) {
+    if (res.data?.reason === "purok_unassigned") {
+      return { kind: "disabled", message: "Your account needs a Purok assignment. Contact the barangay administrator." };
+    }
     if (res.data?.registration_status === "rejected") {
       return { kind: "disabled", message: "Your registration was rejected. Contact the barangay office for assistance." };
     }

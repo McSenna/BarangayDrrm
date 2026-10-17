@@ -1,14 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { getHouseholds, getPriorityList } from "../services/api.jsx";
+import { PRIORITY_BADGE } from "../config/priority.js";
 
-const LEVEL_BADGE = {
-  "Low Priority": "badge-low",
-  "Moderate Priority": "badge-medium",
-  "High Priority": "badge-high",
-  "Critical Priority": "badge-critical",
-};
-
-const LEVEL_RANK = { "Critical Priority": 4, "High Priority": 3, "Moderate Priority": 2, "Low Priority": 1, "Not Assessed": 0 };
+const LEVEL_RANK = { "Critical Priority": 4, "High Priority": 3, "Moderate Priority": 2, "Low Priority": 1, "Pending Assessment": 0, "For Verification": 0 };
 
 export default function BeneficiaryPicker({ selected, onChange }) {
   const [households, setHouseholds] = useState([]);
@@ -24,7 +18,7 @@ export default function BeneficiaryPicker({ selected, onChange }) {
         const merged = h.data.data.map((hh) => ({
           ...hh,
           priority_level: priorityByHousehold[hh.household_id]?.priority_level || null,
-          priority_score: priorityByHousehold[hh.household_id]?.priority_score ?? 0,
+          priority_score: priorityByHousehold[hh.household_id]?.priority_score ?? null,
         }));
         merged.sort((a, b) => (LEVEL_RANK[b.priority_level] || 0) - (LEVEL_RANK[a.priority_level] || 0));
         setHouseholds(merged);
@@ -98,7 +92,7 @@ export default function BeneficiaryPicker({ selected, onChange }) {
                 <td>{h.head_of_family}</td>
                 <td>{h.purok}</td>
                 <td>{h.number_of_members}</td>
-                <td>{h.priority_level ? <span className={`badge ${LEVEL_BADGE[h.priority_level]}`}>{h.priority_level}</span> : "—"}</td>
+                <td>{h.priority_level ? <span className={`badge ${PRIORITY_BADGE[h.priority_level]}`}>{h.priority_level}{h.final_score != null ? " (" + h.final_score + "/100)" : ""}</span> : "—"}</td>
               </tr>
             ))}
           </tbody>

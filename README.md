@@ -1,5 +1,7 @@
 # Barangay Binitayan — Web-Based Post Disaster Monitoring and Relief Allocation with Decision Support System
 
+**User Management updates:** after importing an older database snapshot, apply migrations 26 (registration requests), 27 (Field Officer role), and 28 (assigned Purok) before running the current application. Existing field officers need an administrator to assign a Purok. See [User Management setup and verification](docs/USER_MANAGEMENT.md). Report photos require the supplied Apache rewrite; when using PHP's built-in server from this project root, run `php -S 127.0.0.1:8080 -t . backend/dev_router.php`.
+
 A student capstone system for post-disaster monitoring and relief allocation:
 disaster reporting and assessment (recorded by authorized personnel), household
 profiling, relief requests (recorded by the Administrator), an explainable
@@ -1161,3 +1163,5 @@ Full details: `PHASE25_IMPLEMENTATION_REPORT.md`. This is a capstone prototype t
 5. **Security:** enable HTTPS (SSL) in hPanel; the session cookie is then marked Secure automatically. Do **not** upload `setup_demo_data.php` or run it against the production database.
 6. **Check:** open `https://your-domain/backend/auth/session.php`; it should return `{"success":true,"authenticated":false}`.
 
+
+Current provisional relief scoring and household visits require migrations 29–31. See [setup, verification and unresolved damage policy](docs/PROVISIONAL_RELIEF_SCORING.md). Existing rosters and flood locations require explicit administrator verification.

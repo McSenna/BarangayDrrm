@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
 
-require_login(['admin', 'relief_personnel']); // Phase 21: staff only (residents no longer use this data)
+require_login(['admin', 'relief_personnel', 'field_officer']); // Phase 21: staff only (residents no longer use this data)
 
 $report_id = intval($_GET['report_id'] ?? 0);
 if ($report_id <= 0) {
@@ -13,6 +13,7 @@ if ($report_id <= 0) {
 
 $database = new Database();
 $conn = $database->connect();
+field_require_report($conn, $report_id);
 
 if ($_SESSION['role'] === 'resident') {
     $check = $conn->prepare("SELECT report_id FROM disaster_reports WHERE report_id = :report_id AND user_id = :user_id");

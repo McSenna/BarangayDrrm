@@ -1167,3 +1167,61 @@
     .skeleton { animation: none; }
   }
 }
+
+/* ---------- Relief allocation workflow (field visit form, Ready list, completion) ---------- */
+@layer components {
+  /* Damage classification: one labelled card per level; the radio stays the accessible control. */
+  .damage-picker { border: 0; margin: 0 0 16px; padding: 0; min-width: 0; }
+  .damage-picker legend { font-weight: 700; color: var(--color-navy); margin-bottom: 8px; }
+  .damage-picker-grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .damage-option {
+    position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    min-height: 52px; padding: 10px 14px; border: 1px solid var(--color-control); border-radius: var(--radius-control);
+    background: var(--color-white); color: var(--color-text); cursor: pointer;
+  }
+  .damage-option input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .damage-option-label { font-weight: 600; }
+  .damage-option-points { font-variant-numeric: tabular-nums; color: var(--color-text-muted); white-space: nowrap; }
+  .damage-option:has(input:checked) { border-color: var(--color-navy); box-shadow: inset 0 0 0 1px var(--color-navy); background: var(--color-slate); }
+  .damage-option:has(input:checked) .damage-option-points { color: var(--color-navy); font-weight: 700; }
+  .damage-option:has(input:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+  .damage-option:has(input:disabled) { cursor: not-allowed; opacity: 0.6; }
+
+  /* Score preview next to the form (display only; the server recalculates). */
+  .score-preview { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; padding: 12px 14px; border-radius: var(--radius-control);
+    background: var(--color-slate); margin-bottom: 16px; font-variant-numeric: tabular-nums; }
+  .score-preview strong { color: var(--color-navy); font-size: 18px; }
+  .score-preview small { color: var(--color-text-muted); flex-basis: 100%; }
+
+  .form-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  @media (max-width: 599.98px) { .form-actions .btn { flex: 1 1 100%; } }
+
+  /* Ready for Distribution list */
+  .ready-items { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; font-variant-numeric: tabular-nums; }
+  .release-row { display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--color-border); }
+  .release-row input { width: 100%; }
+  .release-row small { color: var(--color-text-muted); }
+}
+
+@layer components {
+  /* Status filter tabs (Relief Allocation): segmented control, selected = navy fill. */
+  .seg-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .seg-tab { min-height: 36px; padding: 6px 12px; border: 1px solid var(--color-control); border-radius: var(--radius-control);
+    background: var(--color-white); color: var(--color-navy); font-weight: 600; font-size: 13px; cursor: pointer; font-variant-numeric: tabular-nums; }
+  .seg-tab:hover { background: var(--color-slate); }
+  .seg-tab[aria-selected="true"] { background: var(--color-navy); border-color: var(--color-navy); color: var(--color-white); }
+  .seg-tab:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+  /* Ready for Distribution: table on wider screens, one card per household on phones. */
+  .ready-cards { display: none; margin: 0; padding: 0; list-style: none; }
+  @media (max-width: 639.98px) {
+    .ready-table { display: none; }
+    .ready-cards { display: grid; gap: 12px; }
+  }
+  .ready-card { border: 1px solid var(--color-border); border-radius: var(--radius-control-lg); padding: 14px; background: var(--color-white); display: grid; gap: 8px; }
+  .ready-card-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+  .ready-card-head strong { color: var(--color-navy); }
+  .ready-card small { color: var(--color-text-muted); }
+  .ready-card-score { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ready-card .form-actions .btn { flex: 1 1 auto; }
+}

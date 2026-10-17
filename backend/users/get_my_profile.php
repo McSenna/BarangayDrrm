@@ -8,7 +8,7 @@ $database = new Database();
 $conn = $database->connect();
 
 $stmt = $conn->prepare(
-    "SELECT user_id, full_name, email, role, contact_number, is_active, created_at
+    "SELECT user_id, full_name, email, role, contact_number, is_active, created_at, assigned_purok
      FROM users WHERE user_id = :user_id"
 );
 $stmt->execute([':user_id' => $_SESSION['user_id']]);

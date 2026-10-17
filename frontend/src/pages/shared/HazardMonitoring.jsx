@@ -16,9 +16,9 @@ const SEVERITY_RANK = { Critical: 0, High: 1, Medium: 2, Low: 3 };
 const DAMAGE_KEYS = [["house_damage", "House"], ["infrastructure_damage", "Infra."], ["property_damage", "Property"], ["agricultural_damage", "Agri."]];
 
 function damageSummary(r) {
-  if (!Number(r.has_assessment)) return <span style={{ color: "var(--color-ink-soft)" }}>Not yet assessed</span>;
+  if (!Number(r.has_assessment)) return <span style={{ color: "var(--color-ink-soft)" }}>Not Yet Assessed</span>;
   const parts = DAMAGE_KEYS.filter(([k]) => r[k] && r[k] !== "None").map(([k, label]) => `${label} ${r[k]}`);
-  return parts.length ? parts.join(", ") : "No damage recorded";
+  return parts.length ? parts.join(", ") : "No Damage — Assessed";
 }
 
 /**
@@ -33,7 +33,7 @@ function damageSummary(r) {
  */
 export default function HazardMonitoring() {
   const { user } = useAuth();
-  const base = user?.role === "admin" ? "/admin" : "/personnel";
+  const base = user?.role === "admin" ? "/admin" : user?.role === "field_officer" ? "/field" : "/personnel";
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [filters, setFilters] = useState({ type: "", severity: "", purok: "", status: "open", q: "" });
@@ -241,7 +241,7 @@ export default function HazardMonitoring() {
               return (
                 <span>
                   <span className={`badge ${PRIORITY_BADGE[p.priority_level] || "badge-unassessed"}`}>
-                    {p.priority_level}{p.priority_score != null ? ` (${p.priority_score})` : ""}
+                    {p.priority_level}{p.final_score != null ? ` (${p.final_score}/100)` : ""}
                   </span>
                   {p.needs_review && <><br /><small>Needs manual review</small></>}
                 </span>

@@ -50,16 +50,15 @@ $workflow['affected_households'] = intval($conn->query(
     "SELECT COUNT(DISTINCT household_id) FROM disaster_reports WHERE household_id IS NOT NULL AND status <> 'Rejected'"
 )->fetchColumn());
 $workflow['reports_without_assessment'] = intval($conn->query(
-    "SELECT COUNT(*) FROM disaster_reports dr LEFT JOIN damage_assessments da ON da.report_id = dr.report_id
-     WHERE dr.status = 'Verified' AND da.assessment_id IS NULL"
+    "SELECT COUNT(*) FROM disaster_reports dr WHERE dr.status='Verified' AND NOT EXISTS (SELECT 1 FROM household_field_assessments fa WHERE fa.household_id=dr.household_id AND fa.status='assessed')"
 )->fetchColumn());
 
-// DSS (Phase 22 weighted model): households per priority category.
-$priority_levels = ['Critical Priority' => 0, 'High Priority' => 0, 'Moderate Priority' => 0, 'Low Priority' => 0, 'Not Assessed' => 0];
+// Households per priority (final score), plus Pending Assessment (no submitted visit) and For Verification (missing data).
+$priority_levels = ['Critical Priority' => 0, 'High Priority' => 0, 'Moderate Priority' => 0, 'Low Priority' => 0, 'Pending Assessment' => 0, 'For Verification' => 0];
 $needs_review = 0;
 foreach (dss_priority_by_household() as $row) {
     if (isset($priority_levels[$row['priority_level']])) $priority_levels[$row['priority_level']]++;
-    if (!empty($row['eligible']) && !empty($row['needs_review'])) $needs_review++;
+    if (!empty($row['needs_review'])) $needs_review++;
 }
 $workflow['priority_levels'] = $priority_levels;
 $workflow['dss_needs_review'] = $needs_review;
@@ -76,11 +75,18 @@ $workflow['shortage_items'] = array_values(array_map(
 $workflow['households_with_recommendations'] = count($recs['data'] ?? []);
 
 $workflow['requests_by_status'] = $count_by("SELECT status AS k, COUNT(*) AS c FROM relief_requests GROUP BY status");
-$workflow['allocations_by_status'] = $count_by("SELECT status AS k, COUNT(*) AS c FROM relief_allocations GROUP BY status");
-// Phase 21/23: Approved allocations already marked Ready for Distribution (null if the migration was not run).
-$workflow['ready_for_distribution'] = $conn->query("SHOW COLUMNS FROM relief_allocations LIKE 'ready_at'")->fetch()
-    ? intval($conn->query("SELECT COUNT(*) FROM relief_allocations WHERE status = 'Approved' AND ready_at IS NOT NULL")->fetchColumn())
-    : null;
+// Relief allocation workflow rounds by status (Pending Assessment … Completed / Cancelled).
+$has_workflow_allocations = (bool) $conn->query("SHOW TABLES LIKE 'household_allocations'")->fetchColumn();
+if ($has_workflow_allocations) {
+    $workflow['allocations_by_status'] = $count_by("SELECT status AS k, COUNT(*) AS c FROM household_allocations GROUP BY status");
+    $workflow['ready_for_distribution'] = intval($conn->query("SELECT COUNT(*) FROM household_allocations WHERE status = 'READY_FOR_DISTRIBUTION'")->fetchColumn());
+} else {
+    $workflow['allocations_by_status'] = $count_by("SELECT status AS k, COUNT(*) AS c FROM relief_allocations GROUP BY status");
+    $has_ready_at = (bool) $conn->query("SHOW COLUMNS FROM relief_allocations LIKE 'ready_at'")->fetch();
+    $workflow['ready_for_distribution'] = $has_ready_at
+        ? intval($conn->query("SELECT COUNT(*) FROM relief_allocations WHERE status = 'Approved' AND ready_at IS NOT NULL")->fetchColumn())
+        : null;
+}
 $workflow['deliveries_by_status'] = $count_by("SELECT status AS k, COUNT(*) AS c FROM distribution_beneficiaries GROUP BY status");
 $workflow['upcoming_schedules'] = $conn->query(
     "SELECT ds.schedule_id, ds.distribution_date, ds.distribution_time, ds.location, rp.package_name, u.full_name AS assigned_personnel_name,

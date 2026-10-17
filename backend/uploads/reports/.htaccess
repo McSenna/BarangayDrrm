@@ -1,0 +1,5 @@
+# Preserve old report-photo URLs while enforcing authentication and Purok scope.
+Options -Indexes
+RewriteEngine On
+RewriteRule ^([0-9]+)/([a-zA-Z0-9_.-]+)$ ../../disasters/view_photo.php?path=uploads/reports/$1/$2 [END]
+RewriteRule ^ - [F]

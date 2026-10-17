@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../config/database.php';
 
-require_login(['admin', 'relief_personnel']); // Phase 21: staff only (residents no longer use this data)
+require_login(['admin', 'relief_personnel', 'field_officer']); // Phase 21: staff only (residents no longer use this data)
 
 $database = new Database();
 $conn = $database->connect();

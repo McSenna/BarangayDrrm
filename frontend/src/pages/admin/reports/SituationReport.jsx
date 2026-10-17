@@ -178,7 +178,7 @@ export default function SituationReport() {
             <DashboardCard label="Inside Recorded Affected Areas" value={d.households.inside_recorded_areas} />
             <DashboardCard label="Persons in Evacuation Centers" value={d.evacuation.current_occupancy_persons} />
             <DashboardCard label="Relief Requests" value={d.requests.total} />
-            <DashboardCard label="Allocations Distributed" value={d.allocations.by_status.Distributed.count} />
+            <DashboardCard label="Allocations Completed" value={d.allocations.by_status.Completed?.count ?? 0} />
           </div>
 
           <Section n={1} title="Executive Summary" note="Generated automatically from the figures below using fixed sentence rules (not AI).">
@@ -220,7 +220,7 @@ export default function SituationReport() {
             <Grid head={["Category", "None", "Minor", "Major", "Totally Damaged"]}
               rows={d.damage.assessed_reports ? Object.entries(d.damage.by_category).map(([k, v]) => [k[0].toUpperCase() + k.slice(1), v.None, v.Minor, v.Major, v["Totally Damaged"]]) : []} />
             <p style={{ margin: "10px 0 0", fontSize: 14 }}>
-              Assessed reports: <strong>{d.damage.assessed_reports}</strong> · not yet assessed: <strong>{d.damage.reports_not_assessed}</strong> ·
+              Households with actual visits: <strong>{d.damage.assessed_reports}</strong> · not yet assessed: <strong>{d.damage.reports_not_assessed}</strong> ·
               with major damage: <strong>{d.damage.with_major_damage}</strong> · with totally damaged: <strong>{d.damage.with_totally_damaged}</strong>
             </p>
           </Section>
@@ -265,9 +265,9 @@ export default function SituationReport() {
             <KV rows={[
               ["Distribution schedules", d.distribution.schedules], ["Upcoming schedules", d.distribution.upcoming_schedules],
               ["Scheduled beneficiaries", counts(d.distribution.beneficiaries_by_status)],
-              ["Allocations distributed directly", d.distribution.direct_allocations_distributed],
+              ["Allocations completed", d.distribution.direct_allocations_distributed],
               ["Households served", d.distribution.households_served],
-              ["Approved allocations awaiting distribution", d.distribution.approved_awaiting_distribution],
+              ["Ready for distribution", d.distribution.ready_for_distribution],
               ["of which Ready for Distribution (verified schedule set)", d.distribution.ready_for_distribution ?? "Not available in recorded data"],
             ]} />
           </Section>

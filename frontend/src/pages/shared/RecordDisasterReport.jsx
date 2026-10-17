@@ -24,7 +24,7 @@ const MAX_PHOTOS = 5;
 export default function RecordDisasterReport() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const base = user?.role === "admin" ? "/admin" : "/personnel";
+  const base = user?.role === "admin" ? "/admin" : user?.role === "field_officer" ? "/field" : "/personnel";
   const [disasterTypes, setDisasterTypes] = useState(FALLBACK_DISASTER_TYPES);
   const [households, setHouseholds] = useState([]);
   const [search, setSearch] = useState("");
@@ -296,7 +296,7 @@ export default function RecordDisasterReport() {
             <label>Photos (optional, up to {MAX_PHOTOS})</label>
             <input type="file" accept="image/*" multiple onChange={(e) => setPhotos(Array.from(e.target.files).slice(0, MAX_PHOTOS))} />
             <p style={{ fontSize: 12.5, color: "var(--color-ink-soft)", margin: "4px 0 0" }}>
-              JPG, PNG, WebP or GIF, up to 5 MB each. More photos and the damage assessment can be added from Disaster Reports → View.
+              JPG, PNG, WebP or GIF, up to 5 MB each. Add report photos from Disaster Reports → View. The assigned Field Officer records household damage through My Household Assignments after a visit.
             </p>
           </div>
           <button className="btn btn-primary" type="submit" disabled={loading}>

@@ -33,6 +33,9 @@ $bad = function (string $msg, int $code = 400) {
 $household_id = input_positive_int($data['household_id'] ?? null);
 if (!$household_id) $bad("We couldn't identify this household. Please refresh the page and try again.");
 
+$conn = (new Database())->connect();
+field_require_household($conn, $household_id);
+
 $lat = $data['latitude'] ?? null;
 $lng = $data['longitude'] ?? null;
 foreach ([$lat, $lng] as $v) {
@@ -46,7 +49,7 @@ if (!$check['valid']) $bad($check['message']);
 $lat_v = round(floatval($lat), 7);
 $lng_v = round(floatval($lng), 7);
 
-$conn = (new Database())->connect();
+
 $cur = $conn->prepare("SELECT head_of_family, latitude, longitude FROM households WHERE household_id = :id");
 $cur->execute([':id' => $household_id]);
 $row = $cur->fetch(PDO::FETCH_ASSOC);

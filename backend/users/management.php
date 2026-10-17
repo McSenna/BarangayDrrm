@@ -1,9 +1,14 @@
 <?php
 require_once __DIR__ . '/registration.php';
+require_once __DIR__ . '/../lib/field_scope.php';
 // Shared account validation and transaction policy. No bootstrap side effects.
 class UserManagementError extends RuntimeException {}
+function um_display_role(array $row) {
+    if ($row['role'] === 'resident' && intval($row['is_household_head'] ?? 0) === 1) return 'Head of the family';
+    return ['admin' => 'Administrator', 'relief_personnel' => 'Relief Personnel', 'field_officer' => 'Field Officer', 'resident' => 'Resident'][$row['role']] ?? 'Unknown';
+}
 function um_access($role) {
-    return ['admin' => 'Full system access', 'relief_personnel' => 'Reports and relief distribution', 'resident' => 'Own household and relief status'][$role] ?? 'Unknown';
+    return ['admin' => 'Full system access', 'relief_personnel' => 'Reports and relief distribution', 'field_officer' => 'Reports, assessments and field views', 'resident' => 'Own household and relief status'][$role] ?? 'Unknown';
 }
 function um_fail($status, $message) { throw new UserManagementError($message, $status); }
 function um_fields(array $data, array $allowed) {
@@ -17,7 +22,7 @@ function um_text($value, $max) {
     return $value;
 }
 function um_profile(array $data, $creating = false) {
-    um_fields($data, ['user_id', 'full_name', 'email', 'role', 'contact_number', 'password', 'version']);
+    um_fields($data, ['user_id', 'full_name', 'email', 'role', 'contact_number', 'password', 'version', 'assigned_purok']);
     $profile = [
         'full_name' => um_text($data['full_name'] ?? '', 150),
         'email' => um_text($data['email'] ?? '', 150),
@@ -25,7 +30,13 @@ function um_profile(array $data, $creating = false) {
         'contact_number' => um_text($data['contact_number'] ?? '', 20),
     ];
     if ($profile['full_name'] === '' || !filter_var($profile['email'], FILTER_VALIDATE_EMAIL)) um_fail(400, 'Enter a full name and a valid email address.');
-    if (!in_array($profile['role'], ['admin', 'resident', 'relief_personnel'], true)) um_fail(400, 'Select a valid account role.');
+    if (!in_array($profile['role'], ['admin', 'resident', 'relief_personnel', 'field_officer'], true)) um_fail(400, 'Select a valid account role.');
+    $assigned = um_text($data['assigned_purok'] ?? '', 50);
+    if (in_array($profile['role'], ['field_officer', 'relief_personnel'], true)) {
+        $assigned = validate_purok_input($assigned);
+        if ($assigned === null) um_fail(400, 'Select an assigned Purok for this staff account.');
+    } elseif ($assigned !== '') um_fail(400, 'Purok assignment is only available for field officer and relief personnel accounts.');
+    $profile['assigned_purok'] = $assigned === '' ? null : $assigned;
     $password = $data['password'] ?? '';
     if (!is_string($password)) um_fail(400, 'Enter a valid password.');
     if ($creating && (strlen($password) < 6 || strlen($password) > 72)) um_fail(400, 'Use a password of 6 to 72 bytes.');
@@ -37,6 +48,7 @@ function um_version(array $row) {
     $values = [];
     foreach (['user_id', 'full_name', 'email', 'role', 'contact_number', 'is_active'] as $key) $values[] = (string)($row[$key] ?? '');
     $values[] = $row['registration_status'] ?? 'approved';
+    $values[] = (string)($row['assigned_purok'] ?? '');
     return hash('sha256', json_encode($values));
 }
 function um_guard(array $row, $actor, $role, $active, $adminCount) {
@@ -78,7 +90,7 @@ function um_lock(PDO $conn) {
     return $count;
 }
 function um_target(PDO $conn, $id, $version = null) {
-    $stmt = $conn->prepare('SELECT user_id, full_name, email, role, contact_number, is_active FROM users WHERE user_id = ? FOR UPDATE');
+    $stmt = $conn->prepare('SELECT user_id, full_name, email, role, contact_number, is_active, assigned_purok FROM users WHERE user_id = ? FOR UPDATE');
     $stmt->execute([$id]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row) um_fail(404, 'This account no longer exists. Refresh the list.');

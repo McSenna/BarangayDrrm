@@ -28,10 +28,18 @@ try {
   await page.getByRole('button', { name: 'Edited Resident', exact: true }).waitFor();
   await page.waitForFunction(() => document.querySelector('.users-pagination')?.textContent.includes('1–1 of 1 users'));
   check(await page.locator('tbody tr').count() === 1, 'location search narrows table');
+  check(await page.locator('tbody').getByText('Head of the family', { exact: true }).isVisible(), 'linked resident shows Head of the family in All accounts');
   await page.getByRole('button', { name: 'Edited Resident', exact: true }).click();
   check(await page.getByRole('dialog').isVisible(), 'details dialog opens');
   await page.keyboard.press('Escape');
   check(await page.getByRole('dialog').count() === 0, 'Escape closes dialog');
+  await page.locator('tbody').getByRole('button', { name: 'Deactivate', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Deactivate', exact: true }).click();
+  await page.locator('tbody').getByText('Deactivated', { exact: true }).waitFor();
+  check(await page.locator('tbody').getByText('Head of the family', { exact: true }).isVisible(), 'deactivated household head remains visible in All accounts');
+  await page.locator('tbody').getByRole('button', { name: 'Reactivate', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Reactivate', exact: true }).click();
+  await page.locator('tbody').getByText('Active', { exact: true }).waitFor();
   await page.getByLabel('Search users').fill('');
   await page.getByRole('button', { name: 'Add user', exact: true }).click();
   const dialog = page.getByRole('dialog');

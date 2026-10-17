@@ -8,6 +8,7 @@ import {
   getDisasterEvents, getAffectedAreas, getAffectedHouseholds, saveAffectedArea, setAffectedAreaStatus, deleteAffectedArea,
 } from "../../services/api.jsx";
 import { purokLabel } from "../../utils/purokLabel.js";
+import { PRIORITY_BADGE } from "../../config/priority.js";
 
 /**
  * Phase 20 — Administrator-recorded affected / flood areas.
@@ -24,7 +25,6 @@ import { purokLabel } from "../../utils/purokLabel.js";
  */
 const FLOOD_PRONE = "Flood-Prone Zone";
 const HAZARDS = ["Flood", "Typhoon", "Landslide", "General Emergency"];
-const PRIORITY_BADGE = { "Low Priority": "badge-low", "Moderate Priority": "badge-medium", "High Priority": "badge-high", "Critical Priority": "badge-critical" };
 const EMPTY_FORM = { area_name: "", hazard_type: "Flood", description: "" };
 
 export default function AffectedAreas() {
@@ -287,7 +287,7 @@ export default function AffectedAreas() {
             { key: "coords", label: "Coordinates", render: (h) => `${h.latitude.toFixed(5)}, ${h.longitude.toFixed(5)}` },
             { key: "members", label: "Members (Vulnerable)", render: (h) => `${h.number_of_members} (${h.vulnerable_members})` },
             { key: "report", label: "Disaster Report", render: (h) => (h.report ? `${h.report.disaster_type}, ${h.report.severity} (${h.report.status})` : "No report") },
-            { key: "priority", label: "Priority (DSS)", render: (h) => (h.priority_level ? <span className={`badge ${PRIORITY_BADGE[h.priority_level]}`}>{h.priority_level}{h.priority_score != null ? ` (${h.priority_score})` : ""}</span> : "—") },
+            { key: "priority", label: "Priority (DSS)", render: (h) => (h.priority_level ? <span className={`badge ${PRIORITY_BADGE[h.priority_level]}`}>{h.priority_level}{h.final_score != null ? ` (${h.final_score}/100)` : ""}</span> : "—") },
             { key: "request", label: "Relief Request", render: (h) => (h.request ? `#${h.request.request_id} ${h.request.status}` : "None") },
           ]}
           rows={result?.inside || []}

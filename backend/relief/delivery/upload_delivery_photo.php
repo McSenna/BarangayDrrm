@@ -19,6 +19,7 @@ if ($report_id <= 0) {
 
 $database = new Database();
 $conn = $database->connect();
+staff_require_delivery($conn, $report_id);
 
 // Confirm the report exists and, for relief personnel, that they're the ones who submitted it
 $stmt = $conn->prepare("SELECT submitted_by FROM delivery_reports WHERE report_id = :report_id");

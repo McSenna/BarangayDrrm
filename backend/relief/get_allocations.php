@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
 
-require_login(); // residents: own household only (below)
+require_login(['admin', 'resident', 'relief_personnel']); // residents: own household only (below)
 
 $database = new Database();
 $conn = $database->connect();
@@ -29,18 +29,25 @@ if ($_SESSION['role'] === 'resident') {
         ORDER BY ra.allocation_date DESC");
     $stmt->execute([':user_id' => $_SESSION['user_id']]);
 } else {
-    // admin and relief_personnel see everything
+    // Administrators see all records; relief personnel are scoped after fetching.
     $stmt = $conn->prepare($base_query . " ORDER BY ra.allocation_date DESC");
     $stmt->execute();
 }
 
-$allocations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$currentPriorities = [];
+if ($_SESSION['role'] !== 'resident') {
+    require_once __DIR__.'/../lib/dss.php';
+    foreach (dss_scoped_priorities($conn) as $p) $currentPriorities[$p['household_id']]=$p;
+}
+$allocations = field_scope_rows($conn, $stmt->fetchAll(PDO::FETCH_ASSOC));
 
 // Phase 21 — "Ready for Distribution" is an Approved allocation with ready_at
 // set (the stored status stays 'Approved' so stock stays reserved). The
 // display_status is what residents and personnel see.
 foreach ($allocations as &$a) {
     $ready = ($a['status'] ?? '') === 'Approved' && !empty($a['ready_at']);
+    $a['current_priority'] = $currentPriorities[$a['household_id']] ?? null;
+    $a['snapshot_kind'] = str_starts_with($a['dss_model_version'] ?? '', 'automatic-') ? 'Provisional automatic subtotal at approval / 80' : 'Historical score at approval (recorded rules)';
     $a['display_status'] = $ready ? 'Ready for Distribution' : $a['status'];
     if (!array_key_exists('ready_at', $a)) {
         $a['ready_at'] = null;

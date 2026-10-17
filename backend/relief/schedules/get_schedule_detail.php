@@ -58,6 +58,7 @@ $ben_stmt = $conn->prepare(
      ORDER BY db.beneficiary_id ASC"
 );
 $ben_stmt->execute([':schedule_id' => $schedule_id]);
-$schedule['beneficiaries'] = $ben_stmt->fetchAll(PDO::FETCH_ASSOC);
+$schedule['beneficiaries'] = field_scope_rows($conn, $ben_stmt->fetchAll(PDO::FETCH_ASSOC));
+if (staff_has_purok_scope() && !$schedule['beneficiaries']) field_scope_denied();
 
 echo json_encode(["success" => true, "data" => $schedule]);

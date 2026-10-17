@@ -16,6 +16,14 @@ if ($package_id <= 0) {
 $database = new Database();
 $conn = $database->connect();
 
+// The standard relief package (planned items for every Ready household) cannot be deleted while it is in use.
+$standard = $conn->query("SELECT setting_value FROM system_settings WHERE setting_key = 'standard_relief_package_id'")->fetchColumn();
+if ((string)$standard === (string)$package_id) {
+    http_response_code(409);
+    echo json_encode(["success" => false, "message" => "This is the standard relief package. Choose another standard package before deleting it."]);
+    exit();
+}
+
 $check = $conn->prepare("SELECT COUNT(*) FROM distribution_schedules WHERE package_id = :package_id");
 $check->execute([':package_id' => $package_id]);
 if (intval($check->fetchColumn()) > 0) {

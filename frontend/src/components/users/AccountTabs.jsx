@@ -22,6 +22,7 @@ export default function AccountTabs({ active, counts = {} }) {
     ["households", "Household masterlist", "/admin/administrators?tab=households"],
     ["residents", "Resident masterlist", "/admin/administrators?tab=residents"],
     ["personnel", "Relief Personnel", "/admin/administrators?tab=personnel"],
+    ["field_officers", "Field Officers", "/admin/administrators?tab=field_officers"],
   ];
   return <nav ref={navRef} className="users-tabs" aria-label="Users and masterlists">
     {tabs.map(([id, label, to, count]) => <Link key={id} to={to} aria-current={active === id ? "page" : undefined}>

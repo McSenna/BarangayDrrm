@@ -47,4 +47,4 @@ $sql .= " ORDER BY db.status_updated_at DESC";
 $stmt = $conn->prepare($sql);
 $stmt->execute($params);
 
-echo json_encode(["success" => true, "data" => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+echo json_encode(["success" => true, "data" => field_scope_rows($conn, $stmt->fetchAll(PDO::FETCH_ASSOC))]);

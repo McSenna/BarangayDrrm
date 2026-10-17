@@ -25,6 +25,9 @@ ok(m.destinationFor(admin, "/administrator-fake") === "/admin", "prefix trick (/
 ok(m.destinationFor(admin, "//evil.com/admin") === "/admin", "open redirect refused");
 ok(m.destinationFor(res, "/contact") === "/contact", "public page next honoured");
 ok(m.destinationFor({ role: "unknown" }) === "/", "unknown role goes home");
+ok(m.destinationFor({ role: "field_officer" }) === "/field", "field officer lands in field workspace");
+ok(m.destinationFor({ role: "field_officer" }, "/field/reports/new") === "/field/reports/new", "field officer next inside own area is honoured");
+ok(m.destinationFor({ role: "field_officer" }, "/admin") === "/field" && m.destinationFor({ role: "field_officer" }, "/personnel/assigned") === "/field", "field officer redirects stay out of other staff areas");
 
 // ---- validation
 ok(JSON.stringify(m.validateLogin({ email: "", password: "" })) === JSON.stringify({ email: "Enter a valid email address.", password: "Enter your password." }), "both fields required");
@@ -46,5 +49,6 @@ ok(!JSON.stringify(m.loginErrorFor(err(401, { message: "Invalid email or passwor
 
 // Structured rejection must not be misrepresented as waiting for approval.
 ok(m.loginErrorFor(err(403, { registration_status: 'rejected', message: 'Registration rejected' })).message === 'Your registration was rejected. Contact the barangay office for assistance.', 'rejected registration has a clear sign-in message');
+ok(m.loginErrorFor(err(403, { reason: 'purok_unassigned' })).message.includes('needs a Purok assignment'), 'unassigned field officer gets assignment guidance');
 console.log(`\nAUTH LOGIC TEST: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

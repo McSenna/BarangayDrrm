@@ -12,32 +12,26 @@ import { exportToCsv } from "../../utils/exportCsv.js";
 import {
   getReports, verifyReport, rejectReport, getHouseholds, updateReport, uploadReportPhotos,
   getReportPhotos, deleteReportPhoto, reportPhotoUrl,
-  getDamageAssessment, saveDamageAssessment, getDisasterTypes,
+  getDamageAssessment, getDisasterTypes,
 } from "../../services/api.jsx";
 
 const SEVERITY_BADGE = { Low: "badge-low", Medium: "badge-medium", High: "badge-high", Critical: "badge-critical" };
 const STATUS_BADGE = { Pending: "badge-pending", Verified: "badge-verified", Rejected: "badge-rejected" };
 // Fallback filter list; the real list is fetched from System Settings > Disaster Settings (Phase 14).
 const FALLBACK_DISASTER_TYPES = ["Flood", "Typhoon", "Landslide", "Earthquake", "Fire", "Other"];
-const DAMAGE_LEVELS = ["None", "Minor", "Major", "Totally Damaged"];
 const SEVERITY_LEVELS = ["Low", "Medium", "High", "Critical"];
-
-const EMPTY_ASSESSMENT = {
-  house_damage: "None", infrastructure_damage: "None", property_damage: "None",
-  agricultural_damage: "None", estimated_severity: "Low", remarks: "",
-};
 
 /**
  * Disaster Reports — shared by the Administrator (/admin/reports) and Relief
  * Personnel (/personnel/reports) since Phase 21. Reports are recorded by
  * authorized personnel (Record Disaster Report); both roles can update the
- * details, add photos and record the field damage assessment. Verifying or
+ * details and add photos. Household visits use the separate assignment workflow. Verifying or
  * rejecting a report stays with the Administrator (also enforced server-side).
  */
 export default function DisasterReports() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
-  const base = isAdmin ? "/admin" : "/personnel";
+  const base = isAdmin ? "/admin" : user?.role === "field_officer" ? "/field" : "/personnel";
   const [reports, setReports] = useState([]);
   const [households, setHouseholds] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +39,7 @@ export default function DisasterReports() {
 
   const [detailRow, setDetailRow] = useState(null);
   const [photos, setPhotos] = useState([]);
-  const [assessment, setAssessment] = useState(EMPTY_ASSESSMENT);
+  const [assessment, setAssessment] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [remarksModal, setRemarksModal] = useState(null); // { report, action: 'verify'|'reject' }
   const [remarksText, setRemarksText] = useState("");
@@ -139,9 +133,10 @@ export default function DisasterReports() {
     setPhotoMsg(null);
     setDetailLoading(true);
     try {
-      const [p, a] = await Promise.all([getReportPhotos(row.report_id), getDamageAssessment(row.report_id)]);
-      setPhotos(p.data.data);
-      setAssessment(a.data.data || EMPTY_ASSESSMENT);
+      const [p, a] = await Promise.allSettled([getReportPhotos(row.report_id), getDamageAssessment(row.report_id)]);
+      setPhotos(p.status === "fulfilled" ? p.value.data.data || [] : []);
+      setAssessment(a.status === "fulfilled" ? a.value.data.data : null);
+      if (p.status === "rejected") setPhotoMsg({ type: "error", text: "Report photos could not be loaded. Please reopen the report to try again." });
     } finally {
       setDetailLoading(false);
     }
@@ -219,28 +214,14 @@ export default function DisasterReports() {
     load();
   };
 
-  const handleAssessmentChange = (e) => setAssessment({ ...assessment, [e.target.name]: e.target.value });
-
-  const handleAssessmentSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      await saveDamageAssessment({ report_id: detailRow.report_id, ...assessment });
-      alert("Damage assessment saved.");
-      const a = await getDamageAssessment(detailRow.report_id);
-      setAssessment(a.data.data || EMPTY_ASSESSMENT);
-    } catch (err) {
-      alert(err.response?.data?.message || "We couldn't save the damage assessment. Please try again.");
-    }
-  };
-
   return (
     <>
       <div className="page-header">
         <div>
           <h1>Disaster Reports</h1>
           <p>{isAdmin
-            ? "Record, verify, update and assess disaster reports for registered households."
-            : "Record disaster incidents and field assessments for registered households. The Administrator verifies reports."}</p>
+            ? "Record, verify and update disaster reports for registered households."
+            : "Record disaster incidents for registered households. Assigned Field Officers complete household visit assessments."}</p>
         </div>
         <Link to={`${base}/reports/new`} className="btn btn-primary">+ Record Disaster Report</Link>
         <button className="btn btn-ghost" onClick={handleExportCsv}>Export CSV</button>
@@ -467,60 +448,16 @@ export default function DisasterReports() {
               </div>
 
               <hr style={{ margin: "16px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
-              <p style={{ fontWeight: 600, marginBottom: 4 }}>Damage Assessment (field assessment)</p>
-              <p style={{ fontSize: 12.5, color: "var(--color-ink-soft)", marginTop: 0, marginBottom: 8 }}>
-                House, Infrastructure, Property, and Agricultural Damage are considered in the priority score
-                (Major adds 1 point and Totally Damaged adds 2 points, up to a maximum of 4 points).
-              </p>
-              <form onSubmit={handleAssessmentSubmit}>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>House Damage</label>
-                    <select name="house_damage" value={assessment.house_damage} onChange={handleAssessmentChange}>
-                      {DAMAGE_LEVELS.map((d) => <option key={d}>{d}</option>)}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Infrastructure Damage</label>
-                    <select name="infrastructure_damage" value={assessment.infrastructure_damage} onChange={handleAssessmentChange}>
-                      {DAMAGE_LEVELS.map((d) => <option key={d}>{d}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Property Damage</label>
-                    <select name="property_damage" value={assessment.property_damage} onChange={handleAssessmentChange}>
-                      {DAMAGE_LEVELS.map((d) => <option key={d}>{d}</option>)}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Agricultural Damage</label>
-                    <select name="agricultural_damage" value={assessment.agricultural_damage} onChange={handleAssessmentChange}>
-                      {DAMAGE_LEVELS.map((d) => <option key={d}>{d}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>Estimated Severity</label>
-                  <select name="estimated_severity" value={assessment.estimated_severity} onChange={handleAssessmentChange}>
-                    {SEVERITY_LEVELS.map((s) => <option key={s}>{s}</option>)}
-                  </select>
-                  <p style={{ fontSize: 12.5, color: "var(--color-ink-soft)", margin: "4px 0 0" }}>
-                    The assessor's overall rating, recorded for reference. It is not included in the priority score.
-                  </p>
-                </div>
-                <div className="form-group">
-                  <label>Damage Remarks</label>
-                  <textarea name="remarks" value={assessment.remarks} onChange={handleAssessmentChange} placeholder="e.g. Roof partly blown off; rice field flooded." />
-                </div>
-                {assessment.assessed_by_name && (
-                  <p style={{ fontSize: 12.5, color: "var(--color-ink-soft)" }}>
-                    Last assessed by {assessment.assessed_by_name} on {assessment.assessed_at}
-                  </p>
-                )}
-                <button type="submit" className="btn btn-primary btn-sm">Save Damage Assessment</button>
-              </form>
+              <h3>Household visit assessment</h3>
+              <p>Household damage is recorded by the assigned Field Officer after an actual visit.</p>
+              {detailRow.household_id && <p><Link className="btn btn-secondary" to={`${base === "/field" ? "/field/assignments" : `${base}/field-assessments`}?household_id=${detailRow.household_id}`}>{isAdmin ? "Assign or review household visit" : base === "/field" ? "Open my household assignment" : "View household assessment"}</Link></p>}
+              {assessment && <div>
+                <h4>Earlier report assessment (reference)</h4>
+                <p>This historical record does not confirm a completed household visit.</p>
+                <p>House: {assessment.house_damage || "—"} · Infrastructure: {assessment.infrastructure_damage || "—"} · Property: {assessment.property_damage || "—"} · Agricultural: {assessment.agricultural_damage || "—"}</p>
+                <p style={{ whiteSpace: "pre-wrap" }}>{assessment.remarks || "No remarks recorded"}</p>
+                {assessment.assessed_by_name && <p>Recorded by {assessment.assessed_by_name} on {assessment.assessed_at || "—"}</p>}
+              </div>}
             </>
           )}
         </Modal>

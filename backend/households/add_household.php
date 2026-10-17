@@ -3,6 +3,8 @@ require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../utils/boundary_validator.php';
 require_once __DIR__ . '/../lib/puroks.php';
+require_once __DIR__ . '/../lib/household_counts.php';
+require_once __DIR__ . '/../lib/allocation_workflow.php';
 
 require_login(['admin']);
 
@@ -13,23 +15,23 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data = json_decode(file_get_contents("php://input"), true);
+try {
+    if (!is_array($data)) throw new InvalidArgumentException('Send a valid household record.');
+    $reported_counts = household_reported_counts($data);
+} catch (InvalidArgumentException $e) {
+    http_response_code(400); echo json_encode(['success'=>false,'message'=>$e->getMessage()]); exit;
+}
 
 $head_of_family = trim($data['head_of_family'] ?? '');
 $purok = trim($data['purok'] ?? '');
 $address = trim($data['address'] ?? '');
-$number_of_members = intval($data['number_of_members'] ?? 1);
+$number_of_members = $reported_counts['number_of_members'];
 $contact_number = trim($data['contact_number'] ?? '');
 $latitude = $data['latitude'] !== '' && $data['latitude'] !== null ? floatval($data['latitude']) : null;
 $longitude = $data['longitude'] !== '' && $data['longitude'] !== null ? floatval($data['longitude']) : null;
 $user_id = !empty($data['user_id']) ? intval($data['user_id']) : null;
 
-$children_count = max(0, intval($data['children_count'] ?? 0));
-$seniors_count = max(0, intval($data['seniors_count'] ?? 0));
-$pwd_count = max(0, intval($data['pwd_count'] ?? 0));
-$pregnant_count = max(0, intval($data['pregnant_count'] ?? 0));
-$medical_needs_count = max(0, intval($data['medical_needs_count'] ?? 0));
-$other_vulnerable_count = max(0, intval($data['other_vulnerable_count'] ?? 0));
-$vulnerable_members = $children_count + $seniors_count + $pwd_count + $pregnant_count + $medical_needs_count + $other_vulnerable_count;
+extract($reported_counts, EXTR_OVERWRITE);
 
 if ($head_of_family === '' || $purok === '' || $address === '') {
     http_response_code(400);
@@ -62,6 +64,8 @@ if (!$coordCheck['valid']) {
 $database = new Database();
 $conn = $database->connect();
 
+// The household and its first allocation round (PENDING_ASSESSMENT) are created together.
+$conn->beginTransaction();
 $stmt = $conn->prepare(
     "INSERT INTO households (
         user_id, head_of_family, purok, address, number_of_members,
@@ -98,6 +102,8 @@ $stmt->execute([
 $household_id = $conn->lastInsertId();
 
 log_action($conn, "Household added", $head_of_family);
+aw_start_round($conn, intval($household_id), intval($_SESSION['user_id']));
+$conn->commit();
 
 http_response_code(201);
 echo json_encode(["success" => true, "message" => "Household added.", "household_id" => $household_id]);

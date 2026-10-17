@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../lib/allocation_views.php';
 
 require_login(['admin']);
 
@@ -14,10 +15,11 @@ $total_disaster_reports = intval($conn->query("SELECT COUNT(*) FROM disaster_rep
 $reports_this_month = intval($conn->query(
     "SELECT COUNT(*) FROM disaster_reports WHERE DATE_FORMAT(report_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')"
 )->fetchColumn());
-$total_distributed_items = intval($conn->query("SELECT COALESCE(SUM(quantity),0) FROM relief_allocations WHERE status = 'Distributed'")->fetchColumn());
+$released = av_released_sql();
+$total_distributed_items = intval($conn->query("SELECT COALESCE(SUM(quantity),0) FROM $released r")->fetchColumn());
 $low_stock_count = intval($conn->query("SELECT COUNT(*) FROM relief_items WHERE quantity <= minimum_level")->fetchColumn());
 $active_hazard_alerts = intval($conn->query("SELECT COUNT(*) FROM hazard_alerts WHERE is_active = 1")->fetchColumn());
-$total_beneficiaries = intval($conn->query("SELECT COUNT(DISTINCT household_id) FROM relief_allocations WHERE status = 'Distributed'")->fetchColumn());
+$total_beneficiaries = intval($conn->query("SELECT COUNT(DISTINCT household_id) FROM $released r")->fetchColumn());
 
 // ---- Monthly statistics (last 12 months) ----
 $monthly_reports = $conn->query(
@@ -29,8 +31,8 @@ $monthly_reports = $conn->query(
 
 $monthly_relief = $conn->query(
     "SELECT DATE_FORMAT(distributed_at, '%Y-%m') AS label, SUM(quantity) AS quantity
-     FROM relief_allocations
-     WHERE status = 'Distributed' AND distributed_at >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+     FROM $released r
+     WHERE distributed_at >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
      GROUP BY label ORDER BY label ASC"
 )->fetchAll(PDO::FETCH_ASSOC);
 

@@ -25,9 +25,28 @@ $conn = $database->connect();
 // This upfront check gives a clear message instead of letting the request
 // fail on the database constraint; the try/catch below is a backstop in
 // case any other reference is ever added later.
+// Relief allocation workflow: an item planned for a Ready household, or in the standard relief package, stays.
+$planned = $conn->prepare(
+    "SELECT COUNT(*) FROM household_allocation_items ai JOIN household_allocations a ON a.allocation_id = ai.allocation_id
+     WHERE ai.item_id = :item_id AND a.status = 'READY_FOR_DISTRIBUTION'"
+);
+$planned->execute([':item_id' => $item_id]);
+$readyCount = intval($planned->fetchColumn());
+$standard = $conn->prepare(
+    "SELECT COUNT(*) FROM relief_package_items pi JOIN system_settings s ON s.setting_key = 'standard_relief_package_id' AND s.setting_value = CAST(pi.package_id AS CHAR)
+     WHERE pi.item_id = :item_id"
+);
+$standard->execute([':item_id' => $item_id]);
+if ($readyCount > 0 || intval($standard->fetchColumn()) > 0) {
+    http_response_code(409);
+    echo json_encode(["success" => false, "message" => "Used by $readyCount ready allocation(s) or the standard package. Complete or re-open those allocations, or change the standard package, first."]);
+    exit();
+}
+
 $inUse = $conn->prepare(
     "SELECT
         (SELECT COUNT(*) FROM relief_allocations WHERE item_id = :item_id1) +
+        (SELECT COUNT(*) FROM household_allocation_items WHERE item_id = :item_id5) +
         (SELECT COUNT(*) FROM inventory_logs WHERE item_id = :item_id2) +
         (SELECT COUNT(*) FROM donations WHERE item_id = :item_id3) +
         (SELECT COUNT(*) FROM relief_package_items WHERE item_id = :item_id4)
@@ -35,7 +54,7 @@ $inUse = $conn->prepare(
 );
 $inUse->execute([
     ':item_id1' => $item_id, ':item_id2' => $item_id,
-    ':item_id3' => $item_id, ':item_id4' => $item_id,
+    ':item_id3' => $item_id, ':item_id4' => $item_id, ':item_id5' => $item_id,
 ]);
 if (intval($inUse->fetchColumn()) > 0) {
     http_response_code(409);

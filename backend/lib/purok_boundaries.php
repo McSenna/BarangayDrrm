@@ -65,8 +65,11 @@ function purok_ring_is_simple(array $ring): bool
 function purok_boundaries_load(?string $file = null): array
 {
     $file = $file ?? PUROK_BOUNDARY_FILE;
-    if (!is_readable($file)) return ['features' => [], 'valid_count' => 0, 'file_found' => false];
-    $fc = json_decode(file_get_contents($file), true);
+    // Windows ACL probes can report unreadable while opening this file succeeds.
+    // The actual read is authoritative; a failed read still produces unknown geography.
+    $raw = @file_get_contents($file);
+    if ($raw === false) return ['features' => [], 'valid_count' => 0, 'file_found' => false];
+    $fc = json_decode($raw, true);
     $barangay = load_binitayan_boundary();
     $out = [];
     $seen = [];

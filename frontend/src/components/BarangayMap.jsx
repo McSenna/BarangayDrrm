@@ -220,7 +220,7 @@ export default function BarangayMap({
                 {h.address}<br />
                 Household Members: {h.number_of_members} (Vulnerable Members: {h.vulnerable_members ?? 0})<br />
                 {h.priority_level && (
-                  <>Priority Level: <strong>{h.priority_level}</strong>{h.priority_score != null && <> (Priority Score: {h.priority_score}/100)</>}<br /></>
+                  <>Priority Level: <strong>{h.priority_level}</strong>{h.priority_score != null && <> (Provisional subtotal: {h.priority_score}/80)</>}<br /></>
                 )}
                 {h.latest_severity && h.latest_severity !== "No report" && (
                   <>Disaster Report: <strong>{h.latest_severity}</strong> severity ({h.latest_report_status})<br /></>

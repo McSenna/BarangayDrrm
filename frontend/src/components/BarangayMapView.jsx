@@ -81,8 +81,8 @@ export default function BarangayMapView() {
         return {
           ...hh,
           household_id: id,
-          number_of_members: num(hh.number_of_members),
-          vulnerable_members: num(hh.vulnerable_members),
+          number_of_members: d.number_of_members ?? null,
+          vulnerable_members: d.vulnerable_members ?? null,
           latitude: num(hh.latitude),
           longitude: num(hh.longitude),
           flood_status: k.flood_status || (hasCoords({ latitude: num(hh.latitude), longitude: num(hh.longitude) }) ? "unverified" : "unmapped"),
@@ -92,6 +92,7 @@ export default function BarangayMapView() {
           needs_review: !!k.needs_review,
           priority_level: d.priority_level,
           priority_score: d.priority_score,
+          score_breakdown: d.score_breakdown, assessment_status: d.assessment_status, assigned_field_officer_name: d.assigned_field_officer_name, field_visit_date: d.field_visit_date,
           latest_severity: d.latest_severity,
           latest_report_status: d.latest_report_status,
         };

@@ -15,7 +15,6 @@ import Inventory from "./pages/admin/Inventory.jsx";
 import InventoryLogs from "./pages/admin/InventoryLogs.jsx";
 import ReliefAllocation from "./pages/admin/ReliefAllocation.jsx";
 import PriorityList from "./pages/admin/PriorityList.jsx";
-import ReliefRecommendations from "./pages/admin/ReliefRecommendations.jsx";
 import AdminUsers from "./pages/admin/AdminUsers.jsx";
 import HazardAlerts from "./pages/admin/HazardAlerts.jsx";
 import SendSMS from "./pages/admin/SendSMS.jsx";
@@ -50,6 +49,10 @@ import AssignedRelief from "./pages/personnel/AssignedRelief.jsx";
 import PersonnelBarangayMap from "./pages/personnel/BarangayMapPage.jsx";
 import PersonnelMyProfile from "./pages/personnel/MyProfile.jsx";
 import LoginDialog from "./features/auth/LoginDialog.jsx";
+import FieldDashboard from "./pages/field/FieldDashboard.jsx";
+import FieldHouseholds from "./pages/field/FieldHouseholds.jsx";
+import HouseholdFieldAssessments from "./pages/shared/HouseholdFieldAssessments.jsx";
+import MyProfileView from "./components/MyProfileView.jsx";
 
 export default function App() {
   return (
@@ -103,11 +106,8 @@ export default function App() {
           <DashboardLayout><PriorityList /></DashboardLayout>
         </ProtectedRoute>
       } />
-      <Route path="/admin/recommendations" element={
-        <ProtectedRoute allowedRoles={["admin"]}>
-          <DashboardLayout><ReliefRecommendations /></DashboardLayout>
-        </ProtectedRoute>
-      } />
+      {/* Recommendation approval was replaced by the allocation workflow (field visit → Ready → completion). */}
+      <Route path="/admin/recommendations" element={<Navigate to="/admin/allocations" replace />} />
       <Route path="/admin/administrators" element={
         <ProtectedRoute allowedRoles={["admin"]}>
           <DashboardLayout><AdminUsers /></DashboardLayout>
@@ -213,6 +213,12 @@ export default function App() {
       } />
 
       {/* Resident */}
+      <Route path="/admin/field-assessments" element={
+        <ProtectedRoute allowedRoles={["admin"]}><DashboardLayout><HouseholdFieldAssessments /></DashboardLayout></ProtectedRoute>
+      } />
+      <Route path="/personnel/field-assessments" element={
+        <ProtectedRoute allowedRoles={["relief_personnel"]}><DashboardLayout><HouseholdFieldAssessments /></DashboardLayout></ProtectedRoute>
+      } />
       <Route path="/resident" element={
         <ProtectedRoute allowedRoles={["resident"]}>
           <DashboardLayout><ResidentDashboard /></DashboardLayout>
@@ -343,6 +349,21 @@ export default function App() {
           <DashboardLayout><Notifications /></DashboardLayout>
         </ProtectedRoute>
       } />
+
+      {[
+        ["/field", <FieldDashboard />],
+        ["/field/reports", <DisasterReports />],
+        ["/field/reports/new", <RecordDisasterReport />],
+        ["/field/assessment-form", <PaperAssessmentForm />],
+        ["/field/households", <FieldHouseholds />],
+        ["/field/assignments", <HouseholdFieldAssessments />],
+        ["/field/monitoring", <HazardMonitoring />],
+        ["/field/map", <PersonnelBarangayMap />],
+        ["/field/my-profile", <MyProfileView />],
+        ["/field/notifications", <Notifications />],
+      ].map(([path, content]) => <Route key={path} path={path} element={
+        <ProtectedRoute allowedRoles={["field_officer"]}><DashboardLayout>{content}</DashboardLayout></ProtectedRoute>
+      } />)}
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -125,12 +125,13 @@ export async function generateDisasterReportPDF(data, filters = {}, summaryLines
 // Household Report PDF
 // ---------------------------------------------------------------
 export async function generateHouseholdReportPDF(data, summaryLines = []) {
+  const printable = value => String(value ?? "").replace(/[\u2013\u2014]/g, "-");
   const doc = new jsPDF();
   let y = await addHeader(doc, "Household Report");
   y = addSummary(doc, summaryLines, y);
 
   doc.setFontSize(10);
-  doc.text(`Total Households: ${data.total_households}    Total Population: ${data.total_population}`, 14, y);
+  doc.text(`Total Households: ${data.total_households}    Reported Population: ${data.total_population}`, 14, y);
   y += 6;
   doc.text(`Vulnerable Households: ${data.vulnerable_household_count}    High and Critical Priority Households: ${data.high_priority_count}`, 14, y);
   y += 10;
@@ -139,7 +140,7 @@ export async function generateHouseholdReportPDF(data, summaryLines = []) {
   y = addTable(doc, ["Purok", "Households", "Population"], data.population_per_purok.map((r) => [r.label, r.household_count, r.population]), y);
 
   const vb = data.vulnerability_breakdown;
-  y = addSectionTitle(doc, "Vulnerability Breakdown (Barangay-wide)", y);
+  y = addSectionTitle(doc, "Reported vulnerability categories (a person may appear in several)", y);
   y = addTable(doc, ["Category", "Count"], [
     ["Children", vb.children], ["Senior Citizens", vb.seniors], ["Persons with Disabilities", vb.pwd],
     ["Pregnant Members", vb.pregnant], ["Members with Medical Needs", vb.medical_needs], ["Other", vb.other],
@@ -147,9 +148,16 @@ export async function generateHouseholdReportPDF(data, summaryLines = []) {
 
   if (y > 220) { doc.addPage(); y = 20; }
   y = addSectionTitle(doc, `High and Critical Priority Households (${data.high_priority_count})`, y);
-  addTable(doc, ["Household Head", "Purok", "Household Members", "Vulnerable Members", "Priority Score", "Priority Level"],
+  addTable(doc, ["Household Head", "Purok", "Verified Members", "Distinct Vulnerable", "Provisional / 80", "Provisional Priority"],
     data.high_priority_households.map((h) => [h.head_of_family, h.purok, h.number_of_members, h.vulnerable_members, h.priority_score, h.priority_level]), y);
 
+  doc.addPage(); y = 20;
+  y = addSectionTitle(doc, "Current provisional scores - automatic maximum 80", y);
+  y = addTable(doc, ["Household", "Flood classification / points", "Verified size / points", "Distinct vulnerable / points", "Subtotal / 80", "Provisional priority"],
+    (data.current_priorities || []).map(h => [h.head_of_family, printable(h.flood_classification_label) + ": " + (h.score_breakdown?.flood_zone ?? "Verify") + "/40", (h.number_of_members ?? "Unknown") + " people: " + (h.score_breakdown?.household_size ?? "Verify") + "/20", (h.vulnerable_members ?? "Unknown") + " people: " + (h.score_breakdown?.vulnerable_members ?? "Verify") + "/20", h.priority_score ?? "Incomplete", h.priority_level]), y);
+  if (y > 240) { doc.addPage(); y = 20; }
+  y = addSectionTitle(doc, "Field visits: damage points undefined and excluded", y);
+  addTable(doc, ["Household", "Damage status", "Assigned Field Officer", "Actual visit date"], (data.current_priorities || []).map(h => [h.head_of_family, printable(h.assessment_status), h.assigned_field_officer_name || "Not assigned", h.field_visit_date || "Not Yet Assessed"]), y);
   doc.save(`household-report-${dateStamp()}.pdf`);
 }
 

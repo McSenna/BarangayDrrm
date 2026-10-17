@@ -32,9 +32,7 @@ export const ADMIN_NAV = [
         badge: ({ stats }) => pending(count(stats?.workflow?.reports_by_status, "Pending")),
         children: [
           { to: "/admin/reports", label: "All Reports" },
-          { to: "/admin/disaster-events", label: "Disaster Events" },
-          { to: "/admin/analytics/situation-report", label: "Situation Report" },
-          { to: "/admin/assessment-form", label: "Paper Assessment Form" },
+          { to: "/admin/field-assessments", label: "Household Field Assessments" },
         ],
         also: ["/admin/reports/new"],
       },
@@ -45,7 +43,6 @@ export const ADMIN_NAV = [
         badge: ({ stats }) => pending(n(stats?.workflow?.dss_needs_review)),
         children: [
           { to: "/admin/priority", label: "Priority Assessment" },
-          { to: "/admin/recommendations", label: "Relief Recommendations" },
         ],
       },
       {
@@ -60,8 +57,6 @@ export const ADMIN_NAV = [
           { to: "/admin/monitoring", label: "Hazard Monitoring" },
           { to: "/admin/map", label: "Barangay Map" },
           { to: "/admin/hazard-alerts", label: "Hazard Alerts" },
-          { to: "/admin/affected-areas", label: "Flood & Affected Areas" },
-          { to: "/admin/evacuation-centers", label: "Evacuation Centers" },
         ],
       },
       {
@@ -71,7 +66,6 @@ export const ADMIN_NAV = [
         badge: ({ stats }) => pending(count(stats?.workflow?.allocations_by_status, "Pending")),
         children: [
           { to: "/admin/allocations", label: "Relief Allocations" },
-          { to: "/admin/relief-requests", label: "Relief Requests" },
           { to: "/admin/inventory", label: "Inventory" },
         ],
       },
@@ -119,6 +113,7 @@ export const PERSONNEL_NAV = [
         icon: FileText,
         children: [
           { to: "/personnel/reports", label: "All Reports" },
+          { to: "/personnel/field-assessments", label: "Household Field Assessments" },
           { to: "/personnel/assessment-form", label: "Paper Assessment Form" },
         ],
         also: ["/personnel/reports/new"],
@@ -146,6 +141,23 @@ export const PERSONNEL_NAV = [
   },
 ];
 
+export const FIELD_OFFICER_NAV = [
+  { label: "Overview", items: [{ to: "/field", label: "Dashboard", icon: LayoutDashboard, end: true }] },
+  { label: "Field Operations", items: [
+    { to: "/field/assignments", label: "My Household Assignments", icon: ClipboardList },
+    { key: "reports", label: "Disaster Reports", icon: FileText, children: [
+      { to: "/field/reports", label: "All Reports" },
+      { to: "/field/assessment-form", label: "Paper Assessment Form" },
+    ], also: ["/field/reports/new"] },
+    { to: "/field/households", label: "Households", icon: House },
+    { key: "hazards", label: "Hazards & Map", icon: TriangleAlert, children: [
+      { to: "/field/monitoring", label: "Hazard Monitoring" },
+      { to: "/field/map", label: "Barangay Map" },
+    ] },
+  ] },
+  { label: "Account", items: [{ to: "/field/notifications", label: "Notifications", icon: Bell, badge: unreadBadge }] },
+];
+
 export const RESIDENT_NAV = [
   {
     label: "Overview",
@@ -167,6 +179,7 @@ export const RESIDENT_NAV = [
 export const NAV_BY_ROLE = {
   admin: ADMIN_NAV,
   relief_personnel: PERSONNEL_NAV,
+  field_officer: FIELD_OFFICER_NAV,
   resident: RESIDENT_NAV,
 };
 
@@ -174,6 +187,7 @@ export const NAV_BY_ROLE = {
 export const ROLE_LINKS = {
   admin: { home: "/admin", profile: "/admin/my-profile", monitoring: "/admin/monitoring", map: "/admin/map", notifications: null },
   relief_personnel: { home: "/personnel", profile: "/personnel/my-profile", monitoring: "/personnel/monitoring", map: "/personnel/map", notifications: "/personnel/notifications" },
+  field_officer: { home: "/field", profile: "/field/my-profile", monitoring: "/field/monitoring", map: "/field/map", notifications: "/field/notifications" },
   resident: { home: "/resident", profile: "/resident/my-profile", monitoring: null, map: null, notifications: "/resident/notifications" },
 };
 
@@ -181,6 +195,7 @@ export const ROLE_LABEL = {
   admin: "Administrator",
   resident: "Resident",
   relief_personnel: "Relief Personnel",
+  field_officer: "Field Officer",
 };
 
 /** Does `pathname` belong to this link (exact, or a sub-page when not `end`)? */

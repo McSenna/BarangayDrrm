@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../lib/affected_areas.php';
 
-require_login(['admin', 'relief_personnel']);
+require_login(['admin', 'relief_personnel', 'field_officer']);
 $conn = (new Database())->connect();
 phase20_require_tables($conn);
 

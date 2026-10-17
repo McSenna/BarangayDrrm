@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../users/registration.php';
+require_once __DIR__ . '/../lib/field_scope.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -52,7 +53,7 @@ if (intval($recent->fetchColumn()) >= $max_fail) {
     exit();
 }
 
-$stmt = $conn->prepare("SELECT user_id, full_name, email, password, role, is_active FROM users WHERE email = :email");
+$stmt = $conn->prepare("SELECT user_id, full_name, email, password, role, is_active, assigned_purok FROM users WHERE email = :email");
 $stmt->execute([':email' => $email]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -81,6 +82,12 @@ if (intval($user['is_active']) === 0) {
     exit();
 }
 
+if (in_array($user['role'], ['field_officer', 'relief_personnel'], true) && !in_array($user['assigned_purok'], BINITAYAN_PUROKS, true)) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'reason' => 'purok_unassigned', 'message' => 'Ask the administrator to assign your Purok before signing in.']);
+    exit();
+}
+
 // Regenerate the session ID on every successful login — mitigates session
 // fixation attacks (an attacker can't pre-set a session ID and have the
 // victim's authenticated session adopt it).
@@ -103,5 +110,6 @@ echo json_encode([
         "full_name" => $user['full_name'],
         "email" => $user['email'],
         "role" => $user['role'],
+        "assigned_purok" => $user['assigned_purok'],
     ]
 ]);

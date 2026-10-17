@@ -16,7 +16,7 @@ require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../lib/report_fields.php';
 
-require_login(['admin', 'relief_personnel']);
+require_login(['admin', 'relief_personnel', 'field_officer']);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -66,6 +66,7 @@ if ($set_needs) {
 }
 
 $conn = (new Database())->connect();
+field_require_report($conn, $report_id);
 $p23 = reports_have_phase23_columns($conn);
 // Phase 25: assessment fields (event, collection method, paper form no., field assessor, displacement) — only those sent.
 $assess = [];

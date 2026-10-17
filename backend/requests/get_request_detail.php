@@ -125,9 +125,9 @@ foreach ($items as &$it) {
         : (isset($open_by_item[$item_id])
             ? "Household already has an open allocation for this item (#{$open_by_item[$item_id]['allocation_id']}, {$open_by_item[$item_id]['status']})."
             : ($priority && !in_array($priority['priority_level'], ['Moderate Priority', 'High Priority', 'Critical Priority'], true)
-                ? ($priority['priority_level'] === 'Not Assessed'
-                    ? "No current recommendation: the household has not been assessed (no usable disaster report)."
-                    : "No current recommendation: the household's priority is below Moderate.")
+                ? (!$priority['score_complete']
+                    ? "No current recommendation: verify the incomplete household source data."
+                    : "No recommendation currently available for this item; a Low provisional priority alone does not exclude this household.")
                 : "No current recommendation for this item."));
     $it['current_stock'] = $s['current_stock'];
     $it['committed_stock'] = $s['committed'];
@@ -145,6 +145,9 @@ echo json_encode([
         "report" => $report,
         "assessment" => $assessment,
         "dss" => $priority ? [
+            "automatic_subtotal" => $priority['automatic_subtotal'], "score_complete" => $priority['score_complete'], "provisional" => !$priority['score_complete'], "final_score" => $priority['final_score'],
+            "number_of_members" => $priority['number_of_members'], "vulnerable_members" => $priority['vulnerable_members'],
+            "assigned_field_officer_name" => $priority['assigned_field_officer_name'], "field_visit_date" => $priority['field_visit_date'],
             "priority_score" => $priority['priority_score'],
             "priority_level" => $priority['priority_level'],
             "score_breakdown" => $priority['score_breakdown'],

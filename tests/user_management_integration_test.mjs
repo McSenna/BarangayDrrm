@@ -27,6 +27,9 @@ try {
   let all = await list();
   check(all.summary.total === 5 && all.summary.active === 4 && all.summary.inactive === 1, 'real global counts');
   check(all.data.every((r) => !('password' in r) && !('token' in r)), 'safe response fields');
+  const linked = all.data.find((r) => r.email === 'resident@example.test');
+  check(linked.display_role === 'Head of the family' && linked.role === 'resident', 'linked household account displays head designation with resident permissions');
+  check((await list('&role=head_of_family')).pagination.total === 1, 'household-head role filter');
   check((await list('&search=Test%20street&role=resident&status=active')).pagination.total === 1, 'combined location role status filters');
   check((await list('&search=%25')).pagination.total === 0, 'search treats percent literally');
   check((await list('&page=999')).pagination.page === 1, 'page clamps');
@@ -35,7 +38,7 @@ try {
   const own = all.data.find((r) => r.email === 'admin@example.test');
   const other = all.data.find((r) => r.email === 'second@example.test');
   const target = all.data.find((r) => r.email === 'resident@example.test');
-  const profile = (r) => ({ user_id: r.user_id, full_name: r.full_name, email: r.email, role: r.role, contact_number: r.contact_number || '', version: r.version });
+  const profile = (r) => ({ user_id: r.user_id, full_name: r.full_name, email: r.email, role: r.role, contact_number: r.contact_number || '', assigned_purok: r.assigned_purok || '', version: r.version });
   check((await call('users/update_user.php', 'PUT', { ...profile(own), role: 'resident' }, admin)).status === 409, 'self demotion denied');
   check((await call('users/toggle_status.php', 'POST', { user_id: own.user_id, is_active: 0 }, admin)).status === 409, 'self deactivation denied');
   check((await call('users/update_user.php', 'PUT', { ...profile(target), is_active: 0 }, admin)).status === 400, 'administrative field injection denied');
@@ -50,6 +53,8 @@ try {
   let fresh = (await list()).data.find((r) => r.user_id === target.user_id);
   check(fresh.full_name === 'Edited Resident', 'reload shows persisted edit');
   check((await call('users/toggle_status.php', 'POST', { user_id: target.user_id, is_active: 0, version: fresh.version }, admin)).status === 200, 'deactivation succeeds');
+  const deactivatedHead = (await list()).data.find((r) => r.user_id === target.user_id);
+  check(deactivatedHead && Number(deactivatedHead.is_active) === 0 && deactivatedHead.display_role === 'Head of the family', 'All accounts retains deactivated household heads');
   check((await call('users/get_my_profile.php', 'GET', undefined, resident)).status === 401, 'existing resident session revoked');
   check((await call('auth/login.php', 'POST', { email: target.email, password: fixture.password })).status === 403, 'inactive login denied');
   check((await call('users/toggle_status.php', 'POST', { user_id: target.user_id, is_active: 1 }, admin)).status === 200, 'reactivation succeeds');
@@ -69,6 +74,7 @@ try {
   const csv = await call('users/get_users.php?managed=1&tab=all&export=csv&per_page=10', 'GET', undefined, admin);
   check(csv.status === 200 && csv.text.trim().split('\n').length === 20, 'CSV exports all filtered pages');
   check(csv.text.includes("'=SUM(A1)") && !csv.text.includes('TestPassword12'), 'CSV formula neutralization and no secrets');
+  check(csv.text.includes('Head of the family'), 'CSV preserves household-head designation');
   const selected = await call(`users/get_users.php?managed=1&tab=all&export=csv&ids=${own.user_id}`, 'GET', undefined, admin);
   check(selected.text.trim().split('\n').length === 2, 'selected CSV scope');
   check((await call('users/get_users.php?managed=1&sort=password', 'GET', undefined, admin)).status === 400, 'invalid sorting rejected');
@@ -76,7 +82,7 @@ try {
   check((await call('users/list_managed.php')).status === 401, 'direct managed endpoint protected');
   const legacy = (await call('users/get_users.php?role=relief_personnel', 'GET', undefined, admin)).data.data[0];
   check(typeof legacy.version === 'string', 'legacy screens receive edit versions');
-  check((await call('users/update_user.php', 'PUT', { ...profile(legacy), role: 'admin' }, admin)).status === 200, 'personnel promotion');
+  check((await call('users/update_user.php', 'PUT', { ...profile(legacy), role: 'admin', assigned_purok: '' }, admin)).status === 200, 'personnel promotion');
   check((await call('users/update_user.php', 'PUT', { ...profile(legacy), password: '' }, admin)).status === 409, 'stale personnel form cannot undo promotion');
   // Restore two active admins, then race requests on independent PHP processes.
   await call('users/update_user.php', 'PUT', { ...profile(legacy), version: undefined }, admin);

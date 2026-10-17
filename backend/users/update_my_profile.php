@@ -5,6 +5,11 @@ require_once __DIR__ . '/../config/database.php';
 require_login(); // any logged-in role — editing only their OWN account
 
 $data = json_decode(file_get_contents("php://input"), true);
+if (is_array($data) && array_key_exists('assigned_purok', $data)) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Purok assignments are managed by the administrator.']);
+    exit();
+}
 
 $full_name = trim($data['full_name'] ?? '');
 $email = trim($data['email'] ?? '');
@@ -89,6 +94,7 @@ echo json_encode([
         "full_name" => $full_name,
         "email" => $email,
         "role" => $_SESSION['role'],
+        "assigned_purok" => staff_has_purok_scope() ? field_assigned_purok($conn) : null,
         "contact_number" => $contact_number,
     ],
 ]);

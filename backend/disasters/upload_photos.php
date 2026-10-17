@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
 
-require_login(['admin', 'relief_personnel']); // Phase 21: authorized personnel only
+require_login(['admin', 'relief_personnel', 'field_officer']); // Phase 21: authorized personnel only
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -19,6 +19,7 @@ if ($report_id <= 0) {
 
 $database = new Database();
 $conn = $database->connect();
+field_require_report($conn, $report_id);
 
 // Confirm the report exists and, for residents, that they own it
 $stmt = $conn->prepare("SELECT user_id FROM disaster_reports WHERE report_id = :report_id");

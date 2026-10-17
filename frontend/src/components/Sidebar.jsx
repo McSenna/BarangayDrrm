@@ -55,7 +55,7 @@ export default function Sidebar({ mode = "static", open = false, onClose }) {
     ? { role: "dialog", "aria-modal": open ? "true" : undefined, "aria-label": "Navigation menu", "aria-hidden": open ? undefined : "true" }
     : {};
 
-  // <aside> as a page column; a plain <div> when it is a dialog (role="dialog" isn't allowed on <aside>).
+  // <aside> as a page column; a plain <div> w  hen it is a dialog (role="dialog" isn't allowed on <aside>).
   const Root = isDrawer ? "div" : "aside";
 
   return (

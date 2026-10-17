@@ -40,9 +40,10 @@ $stmt = $conn->prepare($sql);
 $stmt->execute($params);
 $schedules = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+$beneficiary_scope = staff_household_condition($conn, 'db');
 // Attach a beneficiary status-count summary to each schedule
 $count_stmt = $conn->prepare(
-    "SELECT status, COUNT(*) AS c FROM distribution_beneficiaries WHERE schedule_id = :schedule_id GROUP BY status"
+    "SELECT status, COUNT(*) AS c FROM distribution_beneficiaries db WHERE schedule_id = :schedule_id AND $beneficiary_scope GROUP BY status"
 );
 
 foreach ($schedules as &$s) {
@@ -54,6 +55,9 @@ foreach ($schedules as &$s) {
     $s['beneficiary_counts'] = $counts;
     $s['total_beneficiaries'] = array_sum($counts);
 }
+
+unset($s);
+if (staff_has_purok_scope()) $schedules = array_values(array_filter($schedules, fn($s) => $s['total_beneficiaries'] > 0));
 
 // Optional post-filter: only schedules that have at least one beneficiary in the requested status
 if (in_array($status, ['Pending', 'Prepared', 'Dispatched', 'Delivered', 'Cancelled'])) {

@@ -23,7 +23,7 @@ const Line = ({ label, wide }) => (
  */
 export default function PaperAssessmentForm() {
   const { user } = useAuth();
-  const base = user?.role === "admin" ? "/admin" : "/personnel";
+  const base = user?.role === "admin" ? "/admin" : user?.role === "field_officer" ? "/field" : "/personnel";
   return (
     <>
       <div className="page-header no-print">
@@ -33,7 +33,7 @@ export default function PaperAssessmentForm() {
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-primary" onClick={() => window.print()}>Print form</button>
-          <Link to={`${base}/reports/new`} className="btn btn-ghost">Encode a filled form</Link>
+          <Link to={base === "/field" ? "/field/assignments" : `${base}/field-assessments`} className="btn btn-ghost">{base === "/field" ? "Open my household assignments" : "Review household visits"}</Link>
         </div>
       </div>
 
@@ -44,7 +44,7 @@ export default function PaperAssessmentForm() {
           <li><strong>During the visit:</strong> fill one form per household. Write the date of the visit, what you saw, the needs, and your name. Ask the household; residents do not need a phone.</li>
           <li><strong>Urgent cases:</strong> life-saving help never waits for the form or a score. Follow the barangay emergency procedure, mark the form <em>URGENT</em>, and tell the Administrator (who records an Emergency Override with the reason when the system is back).</li>
           <li><strong>Hand-over:</strong> forms go to the barangay hall in a folder per Purok; a second person checks them (verification box).</li>
-          <li><strong>Encoding (when the system is back):</strong> Record Disaster Report → Collection method <em>Paper Form</em> → type the form number exactly → use the visit date as the assessment date. Write “Encoded by / date” on the paper.</li>
+          <li><strong>Encoding (when the system is back):</strong> the Administrator assigns the household visit to a Field Officer. That officer opens My Household Assignments and records the actual visit date, observed damage and findings. Retain this paper with the visit evidence. Record the incident separately in Disaster Reports when needed.</li>
           <li><strong>Duplicates:</strong> the system refuses a form number already encoded, and warns if the same household already has a report of the same type on the same date. Check the existing report before confirming.</li>
           <li><strong>Keep the paper forms</strong> filed by Purok until the event is closed (audit trail).</li>
         </ol>

@@ -18,6 +18,11 @@ foreach (['', null, 'Purok 5', 'Riverside', 'Purok 8'] as $p) ok(flood_designati
 ok(strpos(FLOOD_DESIGNATION_NOTE, 'not an official') !== false && strpos(FLOOD_DESIGNATION_NOTE, 'does not mean they are safe') !== false,
    'designation note says it is not official and not-designated is not "safe"');
 
+// ---- household flood status from the recorded Purok (barangay rule: no coordinates or confirmation needed)
+foreach (['Purok 1', 'Purok 2', 'Purok 3', 'Purok 4', 'prk. 3', '4'] as $p) ok(household_flood_status_for_purok($p) === 'flood_prone', "recorded \"$p\" -> flood_prone automatically");
+foreach (['Purok 5A', 'Purok 5B', 'Purok 6', 'Purok 7'] as $p) ok(household_flood_status_for_purok($p) === 'not_designated', "recorded \"$p\" -> not_designated automatically");
+foreach (['', null, 'Purok 9', 'Riverside'] as $p) ok(household_flood_status_for_purok($p) === 'unverified', 'missing or unrecognised Purok ' . json_encode($p) . ' -> unverified (flagged, never outside)');
+
 // ---- status from a classification result (synthetic results)
 $c = fn($status, $spatial = null, $matches = [], $near = []) => ['status' => $status, 'spatial_purok' => $spatial, 'matches' => $matches, 'near_edges' => array_map(fn($p) => ['purok' => $p, 'distance_m' => 0.5], $near)];
 ok(household_flood_status($c('no_coordinates')) === 'unmapped', 'no coordinates -> unmapped (never guessed)');

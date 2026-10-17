@@ -21,10 +21,10 @@ $role = $_GET['role'] ?? '';
 $status = $_GET['status'] ?? '';
 $search = trim($_GET['search'] ?? '');
 
-$sql = "SELECT user_id, full_name, email, role, is_active, contact_number, created_at, $approval registration_status FROM users WHERE $approval = 'approved'";
+$sql = "SELECT user_id, full_name, email, role, is_active, contact_number, created_at, assigned_purok, $approval registration_status FROM users WHERE $approval = 'approved'";
 $params = [];
 
-if (in_array($role, ['admin', 'resident', 'relief_personnel'])) {
+if (in_array($role, ['admin', 'resident', 'relief_personnel', 'field_officer'])) {
     $sql .= " AND role = :role";
     $params[':role'] = $role;
 }

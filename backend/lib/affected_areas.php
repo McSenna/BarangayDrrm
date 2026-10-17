@@ -196,6 +196,7 @@ function area_contains_point(array $geometry, float $lat, float $lng): bool
  */
 function affected_households_for_areas(PDO $conn, array $areas): array
 {
+    require_once __DIR__ . '/field_scope.php';
     $geoms = [];
     foreach ($areas as $a) {
         $g = json_decode($a['geojson'], true);
@@ -211,6 +212,7 @@ function affected_households_for_areas(PDO $conn, array $areas): array
          FROM households ORDER BY household_id"
     )->fetchAll(PDO::FETCH_ASSOC);
 
+    $rows = field_scope_rows($conn, $rows);
     $out = ['inside' => [], 'outside' => [], 'missing' => [], 'by_area' => array_fill_keys(array_keys($geoms), 0)];
     foreach ($rows as $h) {
         $base = [
@@ -287,8 +289,13 @@ function affected_household_details(PDO $conn, array $household_ids): array
         if ($details[$hid]['request'] === null) $details[$hid]['request'] = ['request_id' => intval($r['request_id']), 'status' => $r['status'], 'urgency' => $r['urgency']];
     }
 
-    $al = $conn->prepare("SELECT household_id, status, COUNT(*) AS c FROM relief_allocations WHERE household_id IN ($ph) GROUP BY household_id, status");
-    $al->execute($ids);
+    // Workflow rounds by status label (Pending Assessment … Completed); historical per-item rows as "Distributed (historical)".
+    $al = $conn->prepare("SELECT household_id, CASE status WHEN 'PENDING_ASSESSMENT' THEN 'Pending Assessment' WHEN 'ASSESSMENT_IN_PROGRESS' THEN 'Assessment in Progress'
+                            WHEN 'READY_FOR_DISTRIBUTION' THEN 'Ready for Distribution' WHEN 'COMPLETED' THEN 'Completed' ELSE 'Cancelled' END AS status, COUNT(*) AS c
+                          FROM household_allocations WHERE household_id IN ($ph) GROUP BY household_id, status
+                          UNION ALL
+                          SELECT household_id, 'Distributed (historical)', COUNT(*) FROM relief_allocations WHERE status = 'Distributed' AND household_id IN ($ph) GROUP BY household_id");
+    $al->execute(array_merge($ids, $ids));
     foreach ($al->fetchAll(PDO::FETCH_ASSOC) as $r) {
         $details[intval($r['household_id'])]['allocations'][$r['status']] = intval($r['c']);
     }

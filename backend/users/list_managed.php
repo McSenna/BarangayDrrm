@@ -14,7 +14,7 @@ try {
     $direction = um_text($_GET['direction'] ?? 'desc', 4);
     $sorts = ['full_name' => 'u.full_name', 'created_at' => 'u.created_at', 'last_login' => 'lh.last_login'];
     if (!isset($sorts[$sort]) || !in_array($direction, ['asc', 'desc'], true)
-        || !in_array($role, ['', 'admin', 'resident', 'relief_personnel'], true)
+        || !in_array($role, ['', 'admin', 'resident', 'relief_personnel', 'field_officer', 'head_of_family'], true)
         || !in_array($status, ['', 'active', 'inactive', 'pending', 'rejected'], true)
         || !in_array($tab, ['active', 'inactive', 'all', 'requests', 'rejected'], true)) um_fail(400, 'Choose valid account filters.');
     $page = um_id($_GET['page'] ?? 1);
@@ -23,7 +23,9 @@ try {
     $where = ['1=1']; $params = [];
     $conn = (new Database())->connect();
     $approval = registration_expression($conn);
-    if ($role !== '') { $where[] = 'u.role = ?'; $params[] = $role; }
+    if ($role === 'head_of_family') {
+        $where[] = "u.role = 'resident' AND EXISTS (SELECT 1 FROM households hr WHERE hr.user_id = u.user_id)";
+    } elseif ($role !== '') { $where[] = 'u.role = ?'; $params[] = $role; }
     foreach ([$tab === 'all' ? '' : ($tab === 'requests' ? 'pending' : $tab), $status] as $state) {
         if (in_array($state, ['pending', 'rejected'], true)) { $where[] = "$approval = ?"; $params[] = $state; }
         elseif ($state !== '') { $where[] = "($approval = 'approved' AND u.is_active = ?)"; $params[] = $state === 'active' ? 1 : 0; }
@@ -49,8 +51,9 @@ try {
     $pages = max(1, (int)ceil($total / $perPage));
     $page = min($page, $pages);
     $offset = ($page - 1) * $perPage;
-    $query = "SELECT u.user_id, u.full_name, u.email, u.role, u.is_active, u.contact_number, u.created_at,
-        lh.last_login, h.location, $approval registration_status FROM users u
+    $query = "SELECT u.user_id, u.full_name, u.email, u.role, u.is_active, u.contact_number, u.created_at, u.assigned_purok,
+        lh.last_login, h.location, $approval registration_status,
+        CASE WHEN u.role = 'resident' AND h.user_id IS NOT NULL THEN 1 ELSE 0 END is_household_head FROM users u
         LEFT JOIN (SELECT user_id, MAX(login_at) last_login FROM login_history WHERE login_status = 'Success' GROUP BY user_id) lh ON lh.user_id = u.user_id
         LEFT JOIN (SELECT user_id, GROUP_CONCAT(DISTINCT CONCAT_WS(', ', NULLIF(purok, ''), NULLIF(address, '')) ORDER BY household_id SEPARATOR '; ') location
             FROM households GROUP BY user_id) h ON h.user_id = u.user_id
@@ -65,17 +68,21 @@ try {
         header('Cache-Control: no-store');
         $out = fopen('php://output', 'w');
         fwrite($out, "\xEF\xBB\xBF");
-        fputcsv($out, ['Name', 'Email', 'Role', 'Access', 'Location', 'Status', 'Last login', 'Created at'], ',', '"', '');
+        fputcsv($out, ['Name', 'Email', 'Role', 'Access', 'Assigned Purok', 'Location', 'Status', 'Last login', 'Created at'], ',', '"', '');
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $state = $row['registration_status'] === 'approved' ? (intval($row['is_active']) ? 'Active' : 'Deactivated') : ucfirst($row['registration_status']);
-            $values = [$row['full_name'], $row['email'], $row['role'], $row['registration_status'] === 'approved' ? um_access($row['role']) : 'No access until approved', $row['location'], $state, $row['last_login'], $row['created_at']];
+            $values = [$row['full_name'], $row['email'], um_display_role($row), $row['registration_status'] === 'approved' ? um_access($row['role']) : 'No access until approved', $row['assigned_purok'], $row['location'], $state, $row['last_login'], $row['created_at']];
             fputcsv($out, array_map('um_csv_cell', $values), ',', '"', '');
         }
         fclose($out);
         $conn->commit();
     } else {
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($rows as &$row) { $row['version'] = um_version($row); $row['access'] = $row['registration_status'] === 'approved' ? um_access($row['role']) : 'No access until approved'; } unset($row);
+        foreach ($rows as &$row) {
+            $row['version'] = um_version($row);
+            $row['display_role'] = um_display_role($row);
+            $row['access'] = $row['registration_status'] === 'approved' ? um_access($row['role']) : 'No access until approved';
+        } unset($row);
         $month = new DateTimeImmutable('first day of this month 00:00:00', new DateTimeZone(app_config('APP_TIMEZONE')));
         $dbZone = new DateTimeZone(app_config('DB_TIME_ZONE') ?: '+08:00');
         $stats = $conn->prepare("SELECT COUNT(*) total, COALESCE(SUM(is_active = 1 AND $approval = 'approved'), 0) active,

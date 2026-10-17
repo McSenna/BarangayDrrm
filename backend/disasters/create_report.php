@@ -6,7 +6,7 @@ require_once __DIR__ . '/../lib/report_fields.php';
 // Phase 21 — disaster reports are recorded by authorized personnel only
 // (Administrator / Barangay Official and Relief Personnel), for a registered
 // household. Residents can no longer submit reports, even through the API.
-require_login(['admin', 'relief_personnel']);
+require_login(['admin', 'relief_personnel', 'field_officer']);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -73,6 +73,7 @@ if (!$needs_ok) {
 
 $database = new Database();
 $conn = $database->connect();
+field_require_household($conn, $household_id);
 
 // Disaster type must match an active type managed under System Settings > Disaster Settings (Phase 14)
 $typeCheck = $conn->prepare("SELECT type_id FROM disaster_types WHERE type_name = :type AND is_active = 1");

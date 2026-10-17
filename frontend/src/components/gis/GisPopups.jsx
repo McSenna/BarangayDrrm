@@ -44,11 +44,13 @@ export function HouseholdPopup({ h, canEdit, inHazardPurok, affected, onAssign }
         <dt>Location check</dt>
         <dd>{REVIEW_LABEL[h.location_status] || "Not checked"}{h.spatial_purok && h.location_status !== "match" ? ` — inside ${h.spatial_purok}` : ""}</dd>
         {h.priority_level && (
-          <><dt>DSS priority</dt><dd><StatusBadge tone={PRIORITY_TONE[h.priority_level] || "neutral"}>{h.priority_level}</StatusBadge>{h.priority_score != null && <span className="gis-pop-muted"> {h.priority_score}/100</span>}</dd></>
+          <><dt>Provisional priority</dt><dd><StatusBadge tone={PRIORITY_TONE[h.priority_level] || "neutral"}>{h.priority_level}</StatusBadge>{h.priority_score != null && <span className="gis-pop-muted"> {h.priority_score}/80</span>}</dd></>
         )}
         {h.latest_severity && h.latest_severity !== "No report" && (
           <><dt>Disaster report</dt><dd>{h.latest_severity} severity ({h.latest_report_status})</dd></>
         )}
+        <dt>Automatic points</dt><dd>Flood {h.score_breakdown?.flood_zone ?? "?"} / 40 · Size {h.score_breakdown?.household_size ?? "?"} / 20 · Vulnerable {h.score_breakdown?.vulnerable_members ?? "?"} / 20</dd>
+        <dt>Field assessment</dt><dd>{h.assessment_status || "Not Yet Assessed"}<br />{h.assigned_field_officer_name || "Not assigned"} · {h.field_visit_date || "No visit yet"}</dd>
         <dt>Latitude</dt><dd className="gis-num">{fmt(h.latitude)}</dd>
         <dt>Longitude</dt><dd className="gis-num">{fmt(h.longitude)}</dd>
       </dl>

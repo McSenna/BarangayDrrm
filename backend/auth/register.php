@@ -15,7 +15,7 @@ try {
     $conn = (new Database())->connect();
     if (!registration_ready($conn)) um_fail(503, 'Registration is temporarily unavailable. Please contact the barangay office.');
     $conn->beginTransaction();
-    $stmt = $conn->prepare('INSERT INTO users (full_name, email, role, contact_number, password) VALUES (?, ?, ?, ?, ?)');
+    $stmt = $conn->prepare('INSERT INTO users (full_name, email, role, contact_number, assigned_purok, password) VALUES (?, ?, ?, ?, ?, ?)');
     $stmt->execute([...array_values($profile), password_hash($data['password'], PASSWORD_DEFAULT)]);
     $id = intval($conn->lastInsertId());
     $conn->prepare("INSERT INTO user_registration_requests (user_id, status) VALUES (?, 'pending')")->execute([$id]);

@@ -61,6 +61,8 @@ Contrast rules (WCAG AA):
 | ready | navy, white | Ready for Distribution |
 | neutral | white, outlined, muted | Not Assessed, Disabled, Closed |
 
+Relief allocation rounds (`ALLOCATION_STATUS_BADGE` in `utils/householdAssessment.js`): Pending Assessment = neutral (`badge-unassessed`), Assessment in Progress = warning (`badge-pending`), Ready for Distribution = ready (navy), Completed = ok (`badge-verified`), Cancelled = danger (`badge-rejected`). Priority badges come from the final score (/100) only; before the visit the label is Pending Assessment, with missing data For Verification.
+
 Metric values use `StatValue` with tones `critical | pending | ok | neutral`. The tone comes from the data via `deriveTone(value, alertWhen)`: a watched metric shows its alert tone when above zero, and `ok` (green, with a check) at zero.
 
 ## Shell

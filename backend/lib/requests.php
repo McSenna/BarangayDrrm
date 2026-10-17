@@ -52,7 +52,9 @@ function dss_run_endpoint(string $file): array
 function dss_priority_by_household(): array
 {
     $out = [];
-    foreach (dss_run_endpoint('priority_list.php')['data'] ?? [] as $row) {
+    require_once __DIR__.'/dss.php';
+    $priority_conn=(new Database())->connect();
+    foreach (dss_scoped_priorities($priority_conn) as $row) {
         $out[intval($row['household_id'])] = $row;
     }
     return $out;

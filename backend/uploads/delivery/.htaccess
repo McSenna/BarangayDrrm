@@ -1,0 +1,3 @@
+RewriteEngine On
+RewriteRule ^([0-9]+/[a-zA-Z0-9_.-]+)$ ../../relief/delivery/view_photo.php?path=uploads/delivery/$1 [END,QSA]
+RewriteRule ^ - [F]

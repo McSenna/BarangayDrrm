@@ -2,10 +2,10 @@ import { Link } from "react-router-dom";
 
 // Full class names so Tailwind keeps them in the build.
 const STAGES = [
-  { key: "pending", label: "Awaiting approval", cls: "pipe-fill pipe-pending" },
-  { key: "approved", label: "Approved, not ready", cls: "pipe-fill pipe-approved" },
+  { key: "pending", label: "Pending assessment", cls: "pipe-fill pipe-pending" },
+  { key: "approved", label: "Assessment in progress", cls: "pipe-fill pipe-approved" },
   { key: "ready", label: "Ready for distribution", cls: "pipe-fill pipe-ready" },
-  { key: "distributed", label: "Distributed", cls: "pipe-fill pipe-distributed" },
+  { key: "distributed", label: "Completed", cls: "pipe-fill pipe-distributed" },
 ];
 
 /**

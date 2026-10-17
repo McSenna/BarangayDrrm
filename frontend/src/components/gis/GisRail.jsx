@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, House, MapPin, RotateCcw, Search, X } from "lucide-react";
+import { useAuth } from "../../context/AuthContext.jsx";
 import StatusBadge from "../ui/StatusBadge.jsx";
 import { FLOOD_STATUS, floodDesignation } from "../../config/floodZones.js";
 import { STANDARD_PUROKS } from "../../utils/purokBoundaries.js";
@@ -23,6 +24,8 @@ export function HouseholdRail({
   rows, total, search, onSearch, purok, onPurok, zone, onZone, extraPuroks, onReset,
   selectedId, onPick, canEdit, onAssign,
 }) {
+  const { user } = useAuth();
+  const assignedPurok = ["field_officer", "relief_personnel"].includes(user?.role) ? user.assigned_purok : null;
   const [shown, setShown] = useState(PAGE);
   useEffect(() => setShown(PAGE), [search, purok, zone]);
   const filtered = search.trim() !== "" || purok !== "" || zone !== "";
@@ -39,8 +42,8 @@ export function HouseholdRail({
           <div>
             <label htmlFor="gis-purok">Purok</label>
             <select id="gis-purok" value={purok} onChange={(e) => onPurok(e.target.value)}>
-              <option value="">All Puroks</option>
-              {STANDARD_PUROKS.map((p) => (
+              <option value="">{assignedPurok || "All Puroks"}</option>
+              {STANDARD_PUROKS.filter((p) => !assignedPurok || p === assignedPurok).map((p) => (
                 <option key={p} value={p}>{p}{floodDesignation(p) === "flood_prone" ? " — flood-prone" : ""}</option>
               ))}
               {extraPuroks > 0 && <option value="__other">Other stored values ({extraPuroks})</option>}

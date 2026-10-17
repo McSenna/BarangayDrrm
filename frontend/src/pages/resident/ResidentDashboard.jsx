@@ -3,10 +3,19 @@ import { Link } from "react-router-dom";
 import DashboardCard from "../../components/DashboardCard.jsx";
 import usePolling from "../../hooks/usePolling.js";
 import { useAuth } from "../../context/AuthContext.jsx";
-import { getAllocations, getHouseholds, getNotifications, getMyProfile } from "../../services/api.jsx";
-import {
-  ALLOCATION_STEPS, ALLOCATION_STATUS_HELP, AllocationStatusBadge, allocationDisplayStatus, formatSchedule,
-} from "../../config/allocationStatus.jsx";
+import { getMyAllocations, getHouseholds, getNotifications, getMyProfile } from "../../services/api.jsx";
+import { ALLOCATION_STATUS_BADGE } from "../../utils/householdAssessment.js";
+
+// Resident-facing steps of the relief allocation workflow, and which step each status reaches.
+const STEPS = ["Field visit", "Ready for Distribution", "Relief received"];
+const STEP_OF = { PENDING_ASSESSMENT: 0, ASSESSMENT_IN_PROGRESS: 0, READY_FOR_DISTRIBUTION: 1, COMPLETED: 2 };
+const HELP = {
+  PENDING_ASSESSMENT: "Waiting for a Field Officer to visit your household.",
+  ASSESSMENT_IN_PROGRESS: "A Field Officer has started recording your household visit.",
+  READY_FOR_DISTRIBUTION: "Your relief is ready. Please wait for the barangay to hand it over, or contact the barangay office.",
+  COMPLETED: "Your relief was handed over.",
+  CANCELLED: "This allocation was cancelled by the barangay.",
+};
 
 /**
  * Resident Dashboard (Phase 21 — revised resident scope).
@@ -27,7 +36,7 @@ export default function ResidentDashboard() {
 
   const load = useCallback(async () => {
     const results = await Promise.allSettled([
-      getMyProfile(), getHouseholds(), getAllocations(), getNotifications({ limit: 4 }),
+      getMyProfile(), getHouseholds(), getMyAllocations(), getNotifications({ limit: 4 }),
     ]);
     const ok = (i) => (results[i].status === "fulfilled" ? results[i].value.data : null);
     if (ok(0)) setProfile(ok(0).data);
@@ -40,18 +49,12 @@ export default function ResidentDashboard() {
 
   if (!loaded) return <div className="loading-text">Loading dashboard…</div>;
 
-  const count = (s) => allocations.filter((a) => allocationDisplayStatus(a) === s).length;
-  const ready = allocations.filter((a) => allocationDisplayStatus(a) === "Ready for Distribution");
-  const nextReady = [...ready].sort((a, b) => String(a.ready_schedule_date).localeCompare(String(b.ready_schedule_date)))[0];
-  const readyItems = nextReady
-    ? ready.filter((a) => a.ready_schedule_date === nextReady.ready_schedule_date && a.ready_location === nextReady.ready_location)
-    : [];
-  // The household's current stage: the most advanced open stage, else Distributed.
-  const current = ready.length ? "Ready for Distribution"
-    : count("Approved") ? "Approved"
-    : count("Pending") ? "Pending"
-    : count("Distributed") ? "Distributed" : null;
-  const currentIdx = current ? ALLOCATION_STEPS.indexOf(current) : -1;
+  // Rounds come newest first; the first one is the household's current allocation.
+  const round = allocations[0] || null;
+  const current = round ? round.status : null;
+  const currentIdx = current in STEP_OF ? STEP_OF[current] : -1;
+  const completedRounds = allocations.filter((a) => a.status === "COMPLETED").length;
+  const listItems = (a) => a.items.map((i) => `${a.status === "COMPLETED" ? i.released_qty ?? 0 : i.planned_qty} ${i.unit} ${i.item_name}`).join(", ");
 
   return (
     <>
@@ -63,23 +66,18 @@ export default function ResidentDashboard() {
       </div>
 
       <div className="stat-grid">
-        <DashboardCard label="Pending" value={count("Pending")} tone={count("Pending") ? "warn" : ""} />
-        <DashboardCard label="Approved" value={count("Approved")} />
-        <DashboardCard label="Ready for Distribution" value={ready.length} tone={ready.length ? "accent" : ""} />
-        <DashboardCard label="Distributed" value={count("Distributed")} />
+        <DashboardCard label="Current status" value={round ? round.status_label : "None"} tone={current === "READY_FOR_DISTRIBUTION" ? "accent" : ""} />
+        <DashboardCard label="Relief received (rounds)" value={completedRounds} />
       </div>
 
-      {nextReady && (
+      {current === "READY_FOR_DISTRIBUTION" && (
         <div className="ready-box">
           <h3>Your relief is ready for distribution</h3>
           <dl>
             <dt>Items</dt>
-            <dd>{readyItems.map((a) => `${a.item_name} ${a.quantity} ${a.unit}`).join(", ")}</dd>
-            <dt>Schedule</dt>
-            <dd>{formatSchedule(nextReady.ready_schedule_date, nextReady.ready_schedule_time)}</dd>
-            <dt>Location</dt>
-            <dd>{nextReady.ready_location}</dd>
-            {nextReady.ready_instructions && (<><dt>Instructions</dt><dd>{nextReady.ready_instructions}</dd></>)}
+            <dd>{listItems(round)}</dd>
+            <dt>Ready since</dt>
+            <dd>{round.ready_at}</dd>
           </dl>
         </div>
       )}
@@ -98,17 +96,17 @@ export default function ResidentDashboard() {
         ) : (
           <>
             <ol className="relief-steps" aria-label="Relief allocation progress">
-              {ALLOCATION_STEPS.map((s, i) => (
+              {STEPS.map((s, i) => (
                 <li key={s} className={i === currentIdx ? "current" : i < currentIdx ? "done" : ""} aria-current={i === currentIdx ? "step" : undefined}>
                   <span className="step-num">{i + 1}</span>{s}
                 </li>
               ))}
             </ol>
-            <p style={{ fontSize: 14, margin: "10px 0 0" }}>{ALLOCATION_STATUS_HELP[current]}</p>
+            <p style={{ fontSize: 14, margin: "10px 0 0" }}>{HELP[current]}</p>
             {allocations.slice(0, 4).map((a) => (
               <div key={a.allocation_id} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 14, padding: "8px 0", borderTop: "1px solid var(--color-border)", marginTop: 8 }}>
-                <span>{a.item_name} — {a.quantity} {a.unit}</span>
-                <AllocationStatusBadge allocation={a} />
+                <span>Round {a.round_no}{a.items.length ? ` — ${listItems(a)}` : ""}</span>
+                <span className={`badge ${ALLOCATION_STATUS_BADGE[a.status]}`}>{a.status_label}</span>
               </div>
             ))}
           </>

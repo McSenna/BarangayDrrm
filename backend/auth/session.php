@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../users/registration.php';
+require_once __DIR__ . '/../lib/field_scope.php';
 
 if (!isset($_SESSION['user_id'])) {
     echo json_encode(["success" => true, "authenticated" => false]);
@@ -13,11 +14,12 @@ if (!isset($_SESSION['user_id'])) {
 $database = new Database();
 $conn = $database->connect();
 
-$stmt = $conn->prepare("SELECT user_id, full_name, email, role, is_active FROM users WHERE user_id = :user_id");
+$stmt = $conn->prepare("SELECT user_id, full_name, email, role, is_active, assigned_purok FROM users WHERE user_id = :user_id");
 $stmt->execute([':user_id' => $_SESSION['user_id']]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$user || intval($user['is_active']) === 0 || registration_status($conn, $user['user_id']) !== 'approved') {
+if (!$user || intval($user['is_active']) === 0 || registration_status($conn, $user['user_id']) !== 'approved'
+    || (in_array($user['role'], ['field_officer', 'relief_personnel'], true) && !in_array($user['assigned_purok'], BINITAYAN_PUROKS, true))) {
     $_SESSION = [];
     session_destroy();
     echo json_encode(["success" => true, "authenticated" => false, "message" => "Your account does not currently have access. Please contact the barangay office for assistance."]);
@@ -32,5 +34,6 @@ echo json_encode([
         "full_name" => $user['full_name'],
         "email" => $user['email'],
         "role" => $user['role'],
+        "assigned_purok" => $user['assigned_purok'],
     ]
 ]);

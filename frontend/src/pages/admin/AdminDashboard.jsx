@@ -46,19 +46,6 @@ function useDashboardFilters() {
 
 const filterKey = (f) => `${f.range}|${f.purok}|${f.event}`;
 
-/**
- * Administrator Dashboard — a work queue with the live situation beside it.
- *
- *   header      title, DRRM phase, key actions (SMS, hazard alert, report)
- *   filters     period, Purok, disaster event — scope the cards, charts and queue
- *   cards       the four figures that need the Administrator
- *   main        tabbed work queue, reports chart, relief pipeline
- *   rail        hazard status, evacuation centers, stock, recent activity
- *               (barangay-wide, live; drops under the main column below 1280px)
- *
- * Filtered figures come from dashboard/overview.php; the rail reuses the shell's
- * 60 s statistics poll. Refreshes silently every 60 s.
- */
 export default function AdminDashboard() {
   const [filters, setFilters] = useDashboardFilters();
   const [data, setData] = useState(null);
@@ -101,11 +88,6 @@ export default function AdminDashboard() {
           <h1>Administrator Dashboard</h1>
           <p>Barangay Binitayan post-disaster monitoring. The Decision Support System recommends; the Administrator decides.</p>
           <PhaseTracker current={phase} />
-        </div>
-        <div className="dash-actions">
-          <Button variant="ghost" to="/admin/send-sms" icon={Send}>Send SMS</Button>
-          <Button variant="danger" to="/admin/hazard-alerts" icon={Siren}>Issue hazard alert</Button>
-          <Button to="/admin/reports/new" icon={Plus}>Record disaster report</Button>
         </div>
       </div>
 
@@ -205,7 +187,7 @@ function Overview({ data, hazardActive }) {
             {crit} critical · {high} high · {data.priorities.needs_review} need manual review
           </span>
         </KpiCard>
-        <KpiCard to="/admin/allocations" icon={Package} label="Allocations not yet ready" value={notReady} tone={notReady ? "pending" : "ok"} linkLabel="relief allocations">
+        <KpiCard to="/admin/allocations" icon={Package} label="Awaiting field visit" value={notReady} tone={notReady ? "pending" : "ok"} linkLabel="relief allocations">
           <span className="kpi-sub">{p.pending} awaiting approval · {p.approved} approved · {p.ready} ready</span>
         </KpiCard>
         <KpiCard to="/admin/evacuation-centers" icon={Tent} label="Evacuation slots available" value={free} tone={evacTone} linkLabel="evacuation centers">

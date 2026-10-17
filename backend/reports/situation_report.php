@@ -22,6 +22,7 @@
  */
 require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../lib/allocation_views.php';
 require_once __DIR__ . '/../lib/affected_areas.php';
 
 require_login(['admin']);
@@ -156,8 +157,8 @@ $areas = [
 ];
 
 // ------------------------------------------------------------------ D. damage
-$dmg_rows = $q("SELECT da.* FROM damage_assessments da JOIN disaster_reports dr ON dr.report_id = da.report_id
-                WHERE $rep_where AND dr.status <> 'Rejected'", $rp);
+$dmg_rows = $q("SELECT DISTINCT da.* FROM household_field_assessments da JOIN disaster_reports dr ON dr.household_id=da.household_id
+                WHERE $rep_where AND dr.status <> 'Rejected' AND da.status='assessed'", $rp);
 $cats = ['house' => 'house_damage', 'infrastructure' => 'infrastructure_damage', 'property' => 'property_damage', 'agricultural' => 'agricultural_damage'];
 $dist = [];
 foreach ($cats as $k => $col) $dist[$k] = ['None' => 0, 'Minor' => 0, 'Major' => 0, 'Totally Damaged' => 0];
@@ -174,14 +175,15 @@ foreach ($dmg_rows as $d) {
     if ($major) $any_major++;
     if ($total) $any_total++;
 }
+$affected_visit_households = (int)($q("SELECT COUNT(DISTINCT dr.household_id) AS c FROM disaster_reports dr WHERE $rep_where AND dr.status <> 'Rejected'",$rp)[0]['c'] ?? 0);
 $damage = [
     'assessed_reports' => count($dmg_rows),
-    'reports_not_assessed' => max(0, $reports_total - $reports['by_status']['Rejected'] - count($dmg_rows)),
+    'reports_not_assessed' => max(0, $affected_visit_households - count($dmg_rows)),
     'by_category' => $dist,
     'estimated_severity' => $est,
     'with_major_damage' => $any_major,
     'with_totally_damaged' => $any_total,
-    'note' => count($dmg_rows) ? 'Counts per assessed (non-rejected) report. Estimated severity is recorded but is not part of the DSS score.' : NA,
+    'note' => count($dmg_rows) ? 'Counts distinct households with an actual assigned field visit associated with non-rejected reports. Historical report assessments remain stored separately. Estimated severity is recorded but is not part of the DSS score.' : NA,
 ];
 
 // ------------------------------------------------------------------ E. evacuation (current)
@@ -212,7 +214,7 @@ $requests = [
 
 // ------------------------------------------------------------------ G. inventory (current) + shortage
 $items = $q("SELECT i.item_id, i.item_name, i.category, i.unit, i.quantity, i.minimum_level,
-                    COALESCE((SELECT SUM(a.quantity) FROM relief_allocations a WHERE a.item_id = i.item_id AND a.status = 'Approved'), 0) AS committed,
+                    0 AS committed,
                     COALESCE((SELECT SUM(CASE WHEN rq.status IN ('Pending','Under Review') THEN ri.requested_quantity
                                               WHEN rq.status IN ('Approved','Partially Approved') THEN COALESCE(ri.approved_quantity, 0) ELSE 0 END)
                               FROM relief_request_items ri JOIN relief_requests rq ON rq.request_id = ri.request_id
@@ -237,42 +239,35 @@ $inventory = [
     'shortage_items' => array_values(array_map(fn($i) => ['item_name' => $i['item_name'], 'shortage' => $i['shortage'], 'unit' => $i['unit']], array_filter($inv_list, fn($i) => $i['shortage'] > 0))),
     'list' => $inv_list,
     'note' => count($inv_list)
-        ? 'Current figures. Available = stock − reserved for Approved allocations. Shortage = quantities still waiting in open requests (Pending / Under Review: requested; Approved / Partially Approved, not yet allocated: approved) − available.'
+        ? 'Current figures. Nothing is reserved before distribution (stock leaves only when Relief Personnel complete a distribution), so Available = stock. Shortage = quantities still waiting in open requests (Pending / Under Review: requested; Approved / Partially Approved, not yet allocated: approved) − available.'
         : NA,
 ];
 
 // ------------------------------------------------------------------ H. allocations
-$al_where = "a.allocation_date BETWEEN :f AND :t";
-// Phase 25: Distributed = quantity actually received; Cancelled shown separately.
-$p25 = (bool) $conn->query("SHOW COLUMNS FROM relief_allocations LIKE 'received_quantity'")->fetch();
-$al_qty = $p25 ? "CASE WHEN a.status = 'Distributed' THEN COALESCE(a.received_quantity, a.quantity) ELSE a.quantity END" : "a.quantity";
-$al_rows = $q("SELECT a.status, COUNT(*) c, COALESCE(SUM($al_qty), 0) qty FROM relief_allocations a WHERE $al_where GROUP BY a.status", $lp);
-$al = ['Pending' => ['count' => 0, 'quantity' => 0], 'Approved' => ['count' => 0, 'quantity' => 0], 'Distributed' => ['count' => 0, 'quantity' => 0], 'Cancelled' => ['count' => 0, 'quantity' => 0]];
-foreach ($al_rows as $r) $al[$r['status']] = ['count' => intval($r['c']), 'quantity' => intval($r['qty'])];
-$al_items = $q("SELECT i.item_name, i.unit, a.status, SUM($al_qty) qty FROM relief_allocations a JOIN relief_items i ON i.item_id = a.item_id
-                WHERE $al_where GROUP BY i.item_name, i.unit, a.status ORDER BY i.item_name", $lp);
+// Relief allocation workflow rounds started in the relief period; quantities are planned (open rounds) or released (Completed).
+$al_where = "DATE(a.created_at) BETWEEN :f AND :t";
+$al_rows = $q("SELECT a.status, COUNT(*) c,
+                      COALESCE(SUM((SELECT SUM(CASE WHEN a.status = 'COMPLETED' THEN COALESCE(ai.released_qty, 0) ELSE ai.planned_qty END)
+                                    FROM household_allocation_items ai WHERE ai.allocation_id = a.allocation_id)), 0) qty
+               FROM household_allocations a WHERE $al_where GROUP BY a.status", $lp);
+$al = [];
+foreach (AW_STATUS_LABELS as $label) $al[$label] = ['count' => 0, 'quantity' => 0];
+foreach ($al_rows as $r) $al[AW_STATUS_LABELS[$r['status']]] = ['count' => intval($r['c']), 'quantity' => intval($r['qty'])];
+$legacy_done = $q("SELECT COUNT(*) c, COALESCE(SUM(COALESCE(a.received_quantity, a.quantity)), 0) qty FROM relief_allocations a WHERE a.status = 'Distributed' AND a.allocation_date BETWEEN :f AND :t", $lp)[0];
+$al['Distributed (historical)'] = ['count' => intval($legacy_done['c']), 'quantity' => intval($legacy_done['qty'])];
+$al_items = $q("SELECT ai.item_name, ai.unit, a.status, SUM(CASE WHEN a.status = 'COMPLETED' THEN COALESCE(ai.released_qty, 0) ELSE ai.planned_qty END) qty
+                FROM household_allocations a JOIN household_allocation_items ai ON ai.allocation_id = a.allocation_id
+                WHERE $al_where GROUP BY ai.item_name, ai.unit, a.status ORDER BY ai.item_name", $lp);
 $al_total = array_sum(array_column($al, 'count'));
 $allocations = [
     'by_status' => $al,
     'total' => $al_total,
-    'households_with_allocations' => intval($q("SELECT COUNT(DISTINCT a.household_id) c FROM relief_allocations a WHERE $al_where", $lp)[0]['c']),
-    'by_item' => array_map(fn($r) => ['item_name' => $r['item_name'], 'unit' => $r['unit'], 'status' => $r['status'], 'quantity' => intval($r['qty'])], $al_items),
-    'note' => $al_total ? 'Allocations dated in the relief period. Approved = stock reserved; Distributed = quantity actually received (stock deducted); Cancelled = reservation released.' : NA,
+    'households_with_allocations' => intval($q("SELECT COUNT(DISTINCT a.household_id) c FROM household_allocations a WHERE $al_where", $lp)[0]['c']),
+    'by_item' => array_map(fn($r) => ['item_name' => $r['item_name'], 'unit' => $r['unit'], 'status' => AW_STATUS_LABELS[$r['status']], 'quantity' => intval($r['qty'])], $al_items),
+    'partial_receipts' => intval($q("SELECT COUNT(DISTINCT a.allocation_id) c FROM household_allocations a JOIN household_allocation_items ai ON ai.allocation_id = a.allocation_id
+                                     WHERE a.status = 'COMPLETED' AND ai.released_qty < ai.planned_qty AND $al_where", $lp)[0]['c']),
+    'note' => $al_total ? 'Allocation rounds started in the relief period. Ready = complete field visit, final score and planned items; Completed = released quantities (stock deducted). Distributed (historical) = the old per-item allocations.' : NA,
 ];
-// Phase 25: emergency overrides (always listed with their reasons) and partial receipts.
-if ($p25) {
-    $ov = $q("SELECT a.allocation_id, a.allocation_date, h.head_of_family, h.purok, i.item_name, i.unit, a.quantity, a.status, a.override_reason, a.dss_category, a.dss_score, u.full_name approved_by_name
-              FROM relief_allocations a JOIN households h ON h.household_id = a.household_id JOIN relief_items i ON i.item_id = a.item_id
-              LEFT JOIN users u ON u.user_id = a.approved_by
-              WHERE a.is_emergency_override = 1 AND $al_where ORDER BY a.allocation_id", $lp);
-    $allocations['emergency_overrides'] = array_map(fn($r) => [
-        'allocation_id' => intval($r['allocation_id']), 'date' => $r['allocation_date'], 'household' => $r['head_of_family'], 'purok' => $r['purok'],
-        'item' => "{$r['quantity']} {$r['unit']} {$r['item_name']}", 'status' => $r['status'], 'reason' => $r['override_reason'],
-        'dss_at_override' => $r['dss_score'] !== null ? "{$r['dss_score']} ({$r['dss_category']})" : ($r['dss_category'] ?: 'Not Assessed'),
-        'approved_by' => $r['approved_by_name'],
-    ], $ov);
-    $allocations['partial_receipts'] = intval($q("SELECT COUNT(*) c FROM relief_allocations a WHERE a.status = 'Distributed' AND a.received_quantity < a.quantity AND $al_where", $lp)[0]['c']);
-}
 
 // ------------------------------------------------------------------ I. distribution
 // Event mode includes upcoming schedules (dated after today) for the event.
@@ -281,19 +276,17 @@ $sched = $q("SELECT ds.schedule_id FROM distribution_schedules ds WHERE ds.distr
 $ben = $pairs($q("SELECT b.status k, COUNT(*) c FROM distribution_beneficiaries b JOIN distribution_schedules ds ON ds.schedule_id = b.schedule_id
                   WHERE ds.distribution_date BETWEEN :f AND :t GROUP BY b.status", $sp));
 $upcoming = intval($q("SELECT COUNT(*) c FROM distribution_schedules ds WHERE ds.distribution_date > CURDATE() AND ds.distribution_date BETWEEN :f AND :t", $sp)[0]['c']);
-$direct_done = intval($q("SELECT COUNT(*) c FROM relief_allocations a WHERE a.status = 'Distributed' AND a.schedule_id IS NULL AND a.distributed_at $ts", $lp)[0]['c']);
-$hh_served = intval($q("SELECT COUNT(DISTINCT a.household_id) c FROM relief_allocations a WHERE a.status = 'Distributed' AND a.distributed_at $ts", $lp)[0]['c']);
+$released = av_released_sql();
+$direct_done = intval($q("SELECT COUNT(*) c FROM household_allocations a WHERE a.status = 'COMPLETED' AND a.completed_at $ts", $lp)[0]['c']);
+$hh_served = intval($q("SELECT COUNT(DISTINCT r.household_id) c FROM $released r WHERE r.distributed_at $ts", $lp)[0]['c']);
 $distribution = [
     'schedules' => count($sched),
     'upcoming_schedules' => $upcoming,
     'beneficiaries_by_status' => array_merge(['Pending' => 0, 'Prepared' => 0, 'Dispatched' => 0, 'Delivered' => 0, 'Cancelled' => 0], $ben),
     'direct_allocations_distributed' => $direct_done,
     'households_served' => $hh_served,
-    'approved_awaiting_distribution' => intval($q("SELECT COUNT(*) c FROM relief_allocations a WHERE a.status = 'Approved'")[0]['c']),
-    // Phase 21: of those, how many are Ready for Distribution (verified schedule set). null = migration not run.
-    'ready_for_distribution' => $conn->query("SHOW COLUMNS FROM relief_allocations LIKE 'ready_at'")->fetch()
-        ? intval($q("SELECT COUNT(*) c FROM relief_allocations a WHERE a.status = 'Approved' AND a.ready_at IS NOT NULL")[0]['c'])
-        : null,
+    'approved_awaiting_distribution' => intval($q("SELECT COUNT(*) c FROM household_allocations a WHERE a.status = 'READY_FOR_DISTRIBUTION'")[0]['c']),
+    'ready_for_distribution' => intval($q("SELECT COUNT(*) c FROM household_allocations a WHERE a.status = 'READY_FOR_DISTRIBUTION'")[0]['c']),
     'note' => (count($sched) || $direct_done || $hh_served) ? 'Scheduled deliveries (by schedule date; in event mode upcoming schedules are included) and allocations marked Distributed in the relief period. "Awaiting distribution" is the current number of Approved allocations.' : NA,
 ];
 
@@ -329,7 +322,7 @@ if ($households['total_affected']) {
         . "; {$households['vulnerable_households']} of them have vulnerable members ({$households['vulnerable_persons']} person(s)).";
 }
 if ($areas['recorded']) $summary[] = "{$areas['households_inside']} household(s) are located inside {$areas['recorded']} recorded affected area(s).";
-if ($damage['assessed_reports']) $summary[] = "{$damage['assessed_reports']} report(s) have a damage assessment; {$damage['with_totally_damaged']} include totally damaged and {$damage['with_major_damage']} include major damage.";
+if ($damage['assessed_reports']) $summary[] = "{$damage['assessed_reports']} household(s) have a completed field visit; {$damage['with_totally_damaged']} include totally damaged and {$damage['with_major_damage']} include major damage.";
 if ($evac['centers']) $summary[] = "{$evac['current_occupancy_persons']} person(s) are currently recorded in {$evac['centers']} evacuation center(s), with {$evac['available_capacity_open_centers']} space(s) still available in open centers.";
 if ($req_total) $summary[] = "$req_total relief request(s) were submitted; {$requests['by_status']['Distributed']} are fully distributed and " . ($requests['by_status']['Pending'] + $requests['by_status']['Under Review']) . " are waiting for review.";
 if ($al_total) $summary[] = "{$al['Distributed']['count']} allocation(s) have been distributed and {$al['Approved']['count']} are approved and waiting for distribution.";

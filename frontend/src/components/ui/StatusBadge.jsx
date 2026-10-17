@@ -35,6 +35,8 @@ export const STATUS_TONE = {
   Low: "ok",
   "Low Priority": "ok",
   "Not Assessed": "neutral",
+  "For Verification": "warning",
+  "Pending Assessment": "neutral",
   // Hazard alert levels
   Normal: "ok",
   Alert: "warning",
@@ -57,6 +59,8 @@ export const STATUS_TONE = {
   Active: "ok",
   Enabled: "ok",
   "Ready for Distribution": "ready",
+  "Assessment in Progress": "warning",
+  Completed: "ok",
   Rejected: "danger",
   Cancelled: "danger",
   Inactive: "danger",

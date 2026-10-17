@@ -6,6 +6,7 @@ const ROLE_LABEL = {
   admin: "Administrator",
   resident: "Resident",
   relief_personnel: "Relief Personnel",
+  field_officer: "Field Officer",
 };
 
 /**
@@ -110,6 +111,7 @@ export default function MyProfileView() {
           {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : "—"}
         </p>
         <form onSubmit={handleProfileSubmit}>
+          {["field_officer", "relief_personnel"].includes(profile?.role) && <p>Assigned Purok: <strong>{profile.assigned_purok || "Not assigned"}</strong>. Contact the administrator to change your assignment.</p>}
           <div className="form-group">
             <label>Full Name</label>
             <input name="full_name" value={form.full_name} onChange={handleProfileChange} required readOnly={isResident} aria-readonly={isResident} />

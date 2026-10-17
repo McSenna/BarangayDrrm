@@ -16,6 +16,7 @@
 require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../lib/dss.php';
+require_once __DIR__ . '/../lib/allocation_workflow.php';
 require_once __DIR__ . '/../lib/puroks.php';
 require_once __DIR__ . '/../lib/report_ref.php';
 
@@ -30,6 +31,7 @@ $RANGES = ['7d' => 7, '30d' => 30, '90d' => 90, '12m' => 365, 'all' => null];
 $range = isset($_GET['range']) && array_key_exists($_GET['range'], $RANGES) ? $_GET['range'] : '30d';
 $purok = isset($_GET['purok']) && in_array($_GET['purok'], BINITAYAN_PUROKS, true) ? $_GET['purok'] : '';
 $event_id = isset($_GET['event_id']) && ctype_digit((string) $_GET['event_id']) ? intval($_GET['event_id']) : 0;
+$has_workflow_allocations = (bool) $conn->query("SHOW TABLES LIKE 'household_allocations'")->fetchColumn();
 
 $today = new DateTimeImmutable('today');
 if ($RANGES[$range] !== null) {
@@ -47,13 +49,15 @@ if ($purok !== '') { $report_where[] = "h.purok = :purok"; $report_params[':puro
 if ($event_id) { $report_where[] = "dr.event_id = :event_id"; $report_params[':event_id'] = $event_id; }
 $report_from = "FROM disaster_reports dr LEFT JOIN households h ON h.household_id = dr.household_id WHERE " . implode(' AND ', $report_where);
 
-/** Same for allocations (alias a, households h). */
-$alloc_where = ["a.allocation_date >= :from"];
+/** Use the workflow rounds when migrated, otherwise keep legacy relief allocations visible. */
+$alloc_where = [($has_workflow_allocations ? "a.created_at" : "a.allocation_date") . " >= :from"];
 $alloc_params = [':from' => $from_sql];
 if ($purok !== '') { $alloc_where[] = "h.purok = :purok"; $alloc_params[':purok'] = $purok; }
-if ($event_id) { $alloc_where[] = "a.event_id = :event_id"; $alloc_params[':event_id'] = $event_id; }
-$alloc_from = "FROM relief_allocations a JOIN households h ON h.household_id = a.household_id
-               LEFT JOIN relief_items i ON i.item_id = a.item_id WHERE " . implode(' AND ', $alloc_where);
+if ($event_id && !$has_workflow_allocations) { $alloc_where[] = "a.event_id = :event_id"; $alloc_params[':event_id'] = $event_id; }
+$alloc_from = $has_workflow_allocations
+    ? "FROM household_allocations a JOIN households h ON h.household_id = a.household_id WHERE " . implode(' AND ', $alloc_where)
+    : "FROM relief_allocations a JOIN households h ON h.household_id = a.household_id
+       LEFT JOIN relief_items i ON i.item_id = a.item_id WHERE " . implode(' AND ', $alloc_where);
 
 $run = function (string $sql, array $params) use ($conn) {
     $stmt = $conn->prepare($sql);
@@ -86,7 +90,7 @@ $report_counts = $run(
 
 $without_assessment = intval($run(
     "SELECT COUNT(*) $report_from AND dr.status = 'Verified'
-       AND NOT EXISTS (SELECT 1 FROM damage_assessments da WHERE da.report_id = dr.report_id)",
+       AND NOT EXISTS (SELECT 1 FROM household_field_assessments fa WHERE fa.household_id=dr.household_id AND fa.status='assessed')",
     $report_params
 )->fetchColumn());
 
@@ -153,46 +157,82 @@ unset($a);
 // ---------------------------------------------------------------------------
 // Relief allocations: pipeline and queue
 // ---------------------------------------------------------------------------
-$has_ready = (bool) $conn->query("SHOW COLUMNS FROM relief_allocations LIKE 'ready_at'")->fetch();
-$ready_expr = $has_ready ? "a.ready_at IS NOT NULL" : "0";
+if ($has_workflow_allocations) {
+    // Pipeline keys: pending = Pending Assessment, approved = Assessment in Progress,
+    // ready = Ready for Distribution, distributed = Completed.
+    $pipe = $run(
+        "SELECT
+            SUM(a.status = 'PENDING_ASSESSMENT') AS pending,
+            SUM(a.status = 'ASSESSMENT_IN_PROGRESS') AS approved,
+            SUM(a.status = 'READY_FOR_DISTRIBUTION') AS ready,
+            SUM(a.status = 'COMPLETED') AS distributed,
+            COUNT(DISTINCT CASE WHEN a.status = 'COMPLETED' THEN a.household_id END) AS households_served
+         $alloc_from",
+        $alloc_params
+    )->fetch(PDO::FETCH_ASSOC);
 
-$pipe = $run(
-    "SELECT
-        SUM(a.status = 'Pending') AS pending,
-        SUM(a.status = 'Approved' AND NOT ($ready_expr)) AS approved,
-        SUM(a.status = 'Approved' AND ($ready_expr)) AS ready,
-        SUM(a.status = 'Distributed') AS distributed,
-        COUNT(DISTINCT CASE WHEN a.status = 'Distributed' THEN a.household_id END) AS households_served
-     $alloc_from",
-    $alloc_params
-)->fetch(PDO::FETCH_ASSOC);
-
-$queue_allocations = $run(
-    "SELECT a.allocation_id, a.household_id, a.quantity, a.status, a.allocation_date, a.approved_at,
-            ($ready_expr) AS is_ready, a.is_emergency_override, a.dss_category,
-            h.head_of_family, h.purok, i.item_name, i.unit
-     $alloc_from AND a.status IN ('Pending', 'Approved')
-     ORDER BY FIELD(a.status, 'Pending', 'Approved'), ($ready_expr) ASC, a.allocation_date DESC, a.allocation_id DESC
-     LIMIT 100",
-    $alloc_params
-)->fetchAll(PDO::FETCH_ASSOC);
-foreach ($queue_allocations as &$q) {
-    foreach (['allocation_id', 'household_id', 'quantity'] as $k) $q[$k] = intval($q[$k]);
-    $q['is_ready'] = (bool) $q['is_ready'];
-    $q['is_emergency_override'] = (bool) $q['is_emergency_override'];
+    $queue_allocations = $run(
+        "SELECT a.allocation_id, a.household_id, a.status, a.created_at AS allocation_date, a.ready_at, a.ready_priority AS dss_category,
+                h.head_of_family, h.purok,
+                (SELECT COALESCE(SUM(ai.planned_qty), 0) FROM household_allocation_items ai WHERE ai.allocation_id = a.allocation_id) AS quantity
+         $alloc_from AND a.status IN ('PENDING_ASSESSMENT', 'ASSESSMENT_IN_PROGRESS', 'READY_FOR_DISTRIBUTION')
+         ORDER BY FIELD(a.status, 'ASSESSMENT_IN_PROGRESS', 'PENDING_ASSESSMENT', 'READY_FOR_DISTRIBUTION'), a.created_at DESC, a.allocation_id DESC
+         LIMIT 100",
+        $alloc_params
+    )->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($queue_allocations as &$q) {
+        foreach (['allocation_id', 'household_id', 'quantity'] as $k) $q[$k] = intval($q[$k]);
+        $q['is_ready'] = $q['status'] === 'READY_FOR_DISTRIBUTION';
+        $q['is_emergency_override'] = false;
+        $q['status_label'] = AW_STATUS_LABELS[$q['status']];
+        $q['item_name'] = 'Standard relief package';
+        $q['unit'] = '';
+    }
+    unset($q);
+} else {
+    $has_ready_at = (bool) $conn->query("SHOW COLUMNS FROM relief_allocations LIKE 'ready_at'")->fetch();
+    $ready_expr = $has_ready_at ? "a.ready_at IS NOT NULL" : "0";
+    $pipe = $run(
+        "SELECT
+            SUM(a.status = 'Pending') AS pending,
+            SUM(a.status = 'Approved' AND NOT ($ready_expr)) AS approved,
+            SUM(a.status = 'Approved' AND ($ready_expr)) AS ready,
+            SUM(a.status = 'Distributed') AS distributed,
+            COUNT(DISTINCT CASE WHEN a.status = 'Distributed' THEN a.household_id END) AS households_served
+         $alloc_from",
+        $alloc_params
+    )->fetch(PDO::FETCH_ASSOC);
+    $queue_allocations = $run(
+        "SELECT a.allocation_id, a.household_id, a.quantity, a.status, a.allocation_date, a.approved_at,
+                ($ready_expr) AS is_ready, a.is_emergency_override, a.dss_category,
+                h.head_of_family, h.purok, i.item_name, i.unit
+         $alloc_from AND a.status IN ('Pending', 'Approved')
+         ORDER BY FIELD(a.status, 'Pending', 'Approved'), ($ready_expr) ASC, a.allocation_date DESC, a.allocation_id DESC
+         LIMIT 100",
+        $alloc_params
+    )->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($queue_allocations as &$q) {
+        foreach (['allocation_id', 'household_id', 'quantity'] as $k) $q[$k] = intval($q[$k]);
+        $q['is_ready'] = (bool) $q['is_ready'];
+        $q['is_emergency_override'] = (bool) $q['is_emergency_override'];
+        $q['status_label'] = $q['status'] === 'Pending'
+            ? AW_STATUS_LABELS['PENDING_ASSESSMENT']
+            : ($q['is_ready'] ? AW_STATUS_LABELS['READY_FOR_DISTRIBUTION'] : AW_STATUS_LABELS['ASSESSMENT_IN_PROGRESS']);
+        $q['item_name'] = $q['item_name'] ?: 'Relief item';
+    }
+    unset($q);
 }
-unset($q);
 
 // ---------------------------------------------------------------------------
 // DSS priorities (current state; Purok filter only)
 // ---------------------------------------------------------------------------
-$prio = ['Critical Priority' => 0, 'High Priority' => 0, 'Moderate Priority' => 0, 'Low Priority' => 0, 'Not Assessed' => 0];
+$prio = ['Critical Priority' => 0, 'High Priority' => 0, 'Moderate Priority' => 0, 'Low Priority' => 0, 'Pending Assessment' => 0, 'For Verification' => 0];
 $needs_review = 0;
 $queue_priorities = [];
 foreach (dss_compute_priorities_cached($conn) as $row) {
     if ($purok !== '' && purok_match_key($row['purok']) !== $purok) continue;
     if (isset($prio[$row['priority_level']])) $prio[$row['priority_level']]++;
-    if (!empty($row['eligible']) && !empty($row['needs_review'])) $needs_review++;
+    if (!empty($row['needs_review'])) $needs_review++;
     if (!empty($row['eligible']) && in_array($row['priority_level'], ['Critical Priority', 'High Priority'], true)) {
         $queue_priorities[] = [
             'household_id' => intval($row['household_id']),
@@ -222,6 +262,8 @@ foreach ($centers as &$c) {
 }
 unset($c);
 
+$allocation_table = $has_workflow_allocations ? 'household_allocations' : 'relief_allocations';
+$latest_allocation_id = intval($conn->query("SELECT COALESCE(MAX(allocation_id), 0) FROM $allocation_table")->fetchColumn());
 $i = fn($v) => intval($v ?? 0);
 
 echo json_encode([
@@ -267,7 +309,7 @@ echo json_encode([
         // Highest IDs overall (unfiltered): the dashboard's "new since last visit" watermark.
         "latest_ids" => [
             "reports" => intval($conn->query("SELECT COALESCE(MAX(report_id), 0) FROM disaster_reports")->fetchColumn()),
-            "allocations" => intval($conn->query("SELECT COALESCE(MAX(allocation_id), 0) FROM relief_allocations")->fetchColumn()),
+            "allocations" => $latest_allocation_id,
         ],
     ],
 ]);

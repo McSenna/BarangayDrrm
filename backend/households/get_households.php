@@ -76,5 +76,6 @@ $sql .= " ORDER BY household_id DESC";
 $stmt = $conn->prepare($sql);
 $stmt->execute($params);
 $households = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$households = field_scope_rows($conn, $households);
 
 echo json_encode(["success" => true, "data" => $households]);

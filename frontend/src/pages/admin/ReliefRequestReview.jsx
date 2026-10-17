@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import DataTable from "../../components/DataTable.jsx";
 import { StatusBadge, URGENCY_BADGE } from "../../config/requestStatus.jsx";
 import PriorityExplanation from "../../components/PriorityExplanation.jsx";
-import { getReliefRequestDetail, startRequestReview, decideReliefRequest, processReliefRequest } from "../../services/api.jsx";
+import { getReliefRequestDetail, startRequestReview, decideReliefRequest } from "../../services/api.jsx";
 
 const DECIDABLE = ["Pending", "Under Review", "Approved", "Partially Approved"];
 
@@ -113,7 +113,7 @@ export default function ReliefRequestReview() {
         </div>
 
         <div className="card">
-          <h3 style={{ marginBottom: 10 }}>Disaster Report &amp; Damage Assessment</h3>
+          <h3 style={{ marginBottom: 10 }}>Disaster report and earlier assessment reference</h3>
           {report ? (
             <>
               <div className="info-grid">
@@ -200,15 +200,11 @@ export default function ReliefRequestReview() {
 
       {canProcess && (
         <div className="card">
-          <h3 style={{ marginBottom: 6 }}>Process into Relief Allocations</h3>
+          <h3 style={{ marginBottom: 6 }}>Relief for this household</h3>
           <p style={{ fontSize: 14 }}>
-            Creates one Approved relief allocation per approved item, reserving the stock. Stock is deducted when the relief is distributed.
-            If any item no longer has enough available stock, nothing is created.
+            Approved requests no longer create allocations directly. Relief goes through the allocation workflow: the assigned
+            Field Officer visits the household, the household becomes Ready for Distribution, and Relief Personnel complete the distribution.
           </p>
-          <button className="btn btn-primary" disabled={!!busy}
-            onClick={() => window.confirm("Create relief allocations for the approved quantities?") && act("process", () => processReliefRequest(r.request_id))}>
-            {busy === "process" ? "Processing…" : "Create Allocations"}
-          </button>
         </div>
       )}
     </>

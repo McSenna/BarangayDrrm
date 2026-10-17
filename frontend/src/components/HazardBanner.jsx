@@ -12,7 +12,7 @@ const SEVERITY_CLASS = {
   warning: "hazard-banner hazard-warning",
   normal: "hazard-banner hazard-normal",
 };
-const MAP_LINK = { admin: "/admin/map", relief_personnel: "/personnel/map" };
+const MAP_LINK = { admin: "/admin/map", relief_personnel: "/personnel/map", field_officer: "/field/map" };
 
 /**
  * Barangay hazard status banner. Critical: red hazard-tape edge, red tile,

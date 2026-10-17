@@ -58,7 +58,7 @@ const TABS = {
       { key: "rank", label: "Rank", render: (r) => <strong className="queue-rank">#{r.rank}</strong>, sort: (r) => r.rank ?? 9999 },
       { key: "household", label: "Household", render: (r) => r.head_of_family, sort: (r) => r.head_of_family },
       { key: "purok", label: "Purok", render: (r) => purokLabel(r.purok), sort: (r) => r.purok || "" },
-      { key: "score", label: "Score", render: (r) => <strong>{r.priority_score}</strong>, sort: (r) => r.priority_score ?? 0 },
+      { key: "score", label: "Provisional subtotal / 80", render: (r) => <strong>{r.priority_score}</strong>, sort: (r) => r.priority_score ?? 0 },
       {
         key: "level",
         label: "Priority",
@@ -77,12 +77,12 @@ const TABS = {
     label: "Allocations",
     kind: "allocations",
     idKey: "allocation_id",
-    empty: "No pending or approved allocations in this view.",
+    empty: "No open allocation rounds in this view.",
     search: (r) => `${r.head_of_family} ${r.item_name} ${r.purok}`,
     filter: {
       key: "stage",
       label: "Stage",
-      options: ["Pending", "Approved", "Ready for Distribution"],
+      options: ["Assessment in Progress", "Pending Assessment", "Ready for Distribution"],
       match: (r, v) => stageOf(r) === v,
     },
     defaultSort: { key: "stage", dir: "asc" },
@@ -90,7 +90,7 @@ const TABS = {
     action: "Open",
     columns: [
       { key: "household", label: "Household", render: (r, isNew) => <span className="queue-ref">{isNew && <NewMarker />}{r.head_of_family}</span>, sort: (r) => r.head_of_family },
-      { key: "item", label: "Item", render: (r) => `${r.item_name} · ${r.quantity} ${r.unit || ""}`.trim(), sort: (r) => r.item_name },
+      { key: "item", label: "Plan", render: (r) => (r.quantity ? `${r.quantity} planned item(s)` : "After the field visit"), sort: (r) => r.quantity },
       { key: "purok", label: "Purok", render: (r) => purokLabel(r.purok), sort: (r) => r.purok || "" },
       {
         key: "stage",
@@ -101,17 +101,16 @@ const TABS = {
             {r.is_emergency_override && <StatusBadge tone="high">Override</StatusBadge>}
           </span>
         ),
-        sort: (r) => ["Pending", "Approved", "Ready for Distribution"].indexOf(stageOf(r)),
+        sort: (r) => ["Assessment in Progress", "Pending Assessment", "Ready for Distribution"].indexOf(stageOf(r)),
       },
-      { key: "date", label: "Allocated", render: (r) => shortDate(r.allocation_date), sort: (r) => r.allocation_date },
+      { key: "date", label: "Started", render: (r) => shortDate(r.allocation_date), sort: (r) => r.allocation_date },
     ],
   },
 };
 const TAB_ORDER = ["reports", "priorities", "allocations"];
 
 function stageOf(r) {
-  if (r.status === "Approved" && r.is_ready) return "Ready for Distribution";
-  return r.status;
+  return r.status_label || r.status;
 }
 
 /* ---------- Component ---------- */

@@ -67,6 +67,7 @@ export const PRIORITY_COLORS = {
   "Critical Priority": RED,
   "No report": NEUTRAL,
   "Not Assessed": NEUTRAL,
+  "Needs Verification": NEUTRAL,
 };
 
 // Disaster incident severity -> square pin colour.

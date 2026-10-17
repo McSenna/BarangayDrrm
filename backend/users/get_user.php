@@ -15,7 +15,7 @@ if ($user_id <= 0) {
 $database = new Database();
 $conn = $database->connect();
 
-$stmt = $conn->prepare("SELECT user_id, full_name, email, role, is_active, contact_number, created_at FROM users WHERE user_id = :user_id");
+$stmt = $conn->prepare("SELECT user_id, full_name, email, role, is_active, contact_number, created_at, assigned_purok FROM users WHERE user_id = :user_id");
 $stmt->execute([':user_id' => $user_id]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 

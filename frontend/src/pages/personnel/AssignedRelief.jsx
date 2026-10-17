@@ -1,171 +1,128 @@
-import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
 import { useAutoRefresh } from "../../hooks/usePolling.js";
 import DataTable from "../../components/DataTable.jsx";
-import MarkReadyModal from "../../components/MarkReadyModal.jsx";
+import PurokSelect from "../../components/PurokSelect.jsx";
 import Modal from "../../components/Modal.jsx";
-import { getAllocations, distributeAllocationReceived } from "../../services/api.jsx";
-import { AllocationStatusBadge, allocationDisplayStatus, formatSchedule } from "../../config/allocationStatus.jsx";
+import CompleteDistributionModal from "../../components/CompleteDistributionModal.jsx";
+import { PRIORITY_BADGE } from "../../config/priority.js";
+import { damageLabel } from "../../utils/householdAssessment.js";
+import { purokLabel } from "../../utils/purokLabel.js";
+import { getReadyAllocations } from "../../services/api.jsx";
+
+const PRIORITIES = ["Critical Priority", "High Priority", "Moderate Priority", "Low Priority"];
+const COMPONENTS = [["flood_zone", "Flood zone", 40], ["household_size", "Household size", 20], ["vulnerable_members", "Vulnerable members", 20], ["damage", "Damage", 20]];
 
 /**
- * Approved Relief Allocations (Relief Personnel; also used by the
- * Administrator's Relief Allocation page workflow).
- *
- * Phase 21: Approved -> Ready for Distribution (verified schedule + location,
- * automated SMS) -> Distributed (stock deducted once).
+ * Ready for Distribution (Relief Personnel). The server returns only Ready allocations in the user's Purok,
+ * highest final score first, then the longest-waiting. Completing one is the only step that deducts stock.
  */
 export default function AssignedRelief() {
-  const [allocations, setAllocations] = useState([]);
+  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [selected, setSelected] = useState({});
-  const [showReady, setShowReady] = useState(false);
-  const [searchParams] = useSearchParams();
-  // Phase 23: the former Distribution History page is the "distributed" view here.
-  const [filter, setFilter] = useState(searchParams.get("view") === "distributed" ? "distributed" : "all");
+  const [q, setQ] = useState("");
+  const [purok, setPurok] = useState("");
+  const [priority, setPriority] = useState("");
+  const [detail, setDetail] = useState(null);
+  const [completing, setCompleting] = useState(null);
 
-  // Phase 19: load(true) refreshes silently (used by auto-refresh — no spinner, forms untouched).
-  const load = (silent = false) => {
-    if (silent !== true) setLoading(true);
-    getAllocations().then((res) => setAllocations(res.data.data)).finally(() => setLoading(false));
-  };
-
-  useEffect(load, []);
-  useAutoRefresh(() => load(true), 45000);
-
-  // Phase 25: record the quantity actually handed over (partial receipt needs a remark).
-  const [dist, setDist] = useState(null); // { row, received, remarks, error, saving }
-  const openDistribute = (row) => { setError(""); setNotice(""); setDist({ row, received: String(row.quantity), remarks: "", error: "", saving: false }); };
-  const submitDistribute = async (e) => {
-    e.preventDefault();
-    setDist((d) => ({ ...d, saving: true, error: "" }));
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
-      const res = await distributeAllocationReceived(dist.row.allocation_id, Number(dist.received), dist.remarks);
-      setDist(null);
-      setNotice(res.data.message || "Marked as Distributed.");
-      load();
+      const res = await getReadyAllocations({ q: q.trim() || undefined, purok: purok || undefined, priority: priority || undefined });
+      setRows(res.data.data || []);
+      setError("");
     } catch (err) {
-      setDist((d) => ({ ...d, saving: false, error: err.response?.data?.message || "We couldn't mark this allocation as Distributed. Please try again." }));
-    }
-  };
+      if (!silent) setError(err.response?.data?.message || "We couldn't load the Ready for Distribution list. Please try again.");
+    } finally { setLoading(false); }
+  }, [q, purok, priority]);
+  useEffect(() => { const t = setTimeout(() => load(), 250); return () => clearTimeout(t); }, [load]);
+  useAutoRefresh(() => { if (!completing) load(true); }, 45000);
 
-  const approved = allocations.filter((a) => a.status === "Approved");
-  const distributed = allocations.filter((a) => a.status === "Distributed")
-    .sort((a, b) => String(b.distributed_at || "").localeCompare(String(a.distributed_at || "")));
-  const rows = filter === "distributed" ? distributed : approved.filter((a) => {
-    const s = allocationDisplayStatus(a);
-    return filter === "all" || (filter === "ready" ? s === "Ready for Distribution" : s === "Approved");
-  });
-  const selectable = (a) => allocationDisplayStatus(a) === "Approved";
-  const chosen = approved.filter((a) => selected[a.allocation_id] && selectable(a));
-  const toggle = (id) => setSelected((s) => ({ ...s, [id]: !s[id] }));
-  const allSelectable = rows.filter(selectable);
-  const allChecked = allSelectable.length > 0 && allSelectable.every((a) => selected[a.allocation_id]);
-  const toggleAll = () => {
-    const next = { ...selected };
-    allSelectable.forEach((a) => { next[a.allocation_id] = !allChecked; });
-    setSelected(next);
+  const completed = (allocation) => {
+    setCompleting(null);
+    const left = allocation.items.map((i) => `${i.item_name} ${i.remaining_stock ?? "—"} ${i.unit}`).join(", ");
+    setNotice(`Distribution completed for ${allocation.head_of_family}. Remaining stock: ${left}.`);
+    load(true);
   };
 
   return (
     <>
       <div className="page-header">
         <div>
-          <h1>Relief Allocations</h1>
-          <p>
-            Approved → <strong>Ready for Distribution</strong> (record the verified schedule and location; each household is
-            notified by SMS) → Distributed (deducted from Relief Inventory once).
-          </p>
+          <h1>Ready for Distribution</h1>
+          <p>Households whose field visit is complete, highest priority first. Confirm what you hand over to complete a distribution; stock is deducted only then.</p>
         </div>
+        <button className="btn btn-ghost" onClick={() => load()} disabled={loading}>Refresh</button>
       </div>
+      {error && <div className="alert alert-error" role="alert">{error}</div>}
+      {notice && <div className="alert alert-success" role="status">{notice}</div>}
 
-      {error && <div className="alert alert-error">{error}</div>}
-      {notice && <div className="alert alert-success">{notice}</div>}
-
-      <div className="card" style={{ marginBottom: 16, display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-        <div className="form-group" style={{ marginBottom: 0 }}>
-          <label htmlFor="ar-filter">Show</label>
-          <select id="ar-filter" value={filter} onChange={(e) => setFilter(e.target.value)}>
-            <option value="all">All approved ({approved.length})</option>
-            <option value="approved">Approved — not yet ready</option>
-            <option value="ready">Ready for Distribution</option>
-            <option value="distributed">Distributed (history, {distributed.length})</option>
-          </select>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="form-row">
+          <div className="form-group"><label htmlFor="ready-search">Search</label>
+            <input id="ready-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Household head, household ID or Purok" /></div>
+          <div className="form-group"><label htmlFor="ready-purok">Purok</label>
+            <PurokSelect id="ready-purok" value={purok} onChange={(e) => setPurok(e.target.value)} allowEmpty emptyLabel="All Puroks" /></div>
+          <div className="form-group"><label htmlFor="ready-priority">Priority</label>
+            <select id="ready-priority" value={priority} onChange={(e) => setPriority(e.target.value)}>
+              <option value="">All priorities</option>{PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select></div>
         </div>
-        <button className="btn btn-primary" disabled={chosen.length === 0} onClick={() => { setError(""); setNotice(""); setShowReady(true); }}>
-          Mark Ready for Distribution{chosen.length ? ` (${chosen.length})` : ""}
-        </button>
       </div>
 
       <div className="card">
-        {loading ? (
-          <div className="loading-text">Loading approved allocations…</div>
-        ) : (
-          <DataTable
+        {loading ? <div className="loading-text" role="status">Loading Ready for Distribution…</div> : <>
+          <ul className="ready-cards" aria-label="Ready for Distribution">
+            {rows.length === 0 && <li>No households are Ready for Distribution right now.</li>}
+            {rows.map((r) => <li key={r.allocation_id} className="ready-card">
+              <div className="ready-card-head">
+                <div><strong>{r.head_of_family}</strong><br /><small>{purokLabel(r.purok)} · ID {r.household_id}</small></div>
+                <div className="ready-card-score"><strong>{r.ready_score} / 100</strong><br /><span className={`badge ${PRIORITY_BADGE[r.ready_priority] || "badge-pending"}`}>{r.ready_priority}</span></div>
+              </div>
+              <small>{COMPONENTS.map(([k, label, max]) => `${label} ${r.breakdown?.[k] ?? "—"}/${max}`).join(" · ")}</small>
+              <ul className="ready-items">{r.items.map((i) => <li key={i.allocation_item_id}>{i.planned_qty} {i.unit} {i.item_name}</li>)}</ul>
+              <small>Assessed by {r.assessed_by_name || "—"} · visit {r.field_visit_date || "—"}</small>
+              <div className="form-actions">
+                <button className="btn btn-ghost btn-sm" onClick={() => setDetail(r)}>View</button>
+                <button className="btn btn-primary btn-sm" onClick={() => { setNotice(""); setCompleting(r); }}>Complete distribution</button>
+              </div>
+            </li>)}
+          </ul>
+          <div className="ready-table"><DataTable rows={rows.map((r) => ({ ...r, id: r.allocation_id }))} emptyText="No households are Ready for Distribution right now."
             columns={[
-              { key: "select", label: (
-                <input type="checkbox" aria-label="Select all approved allocations that are not yet ready" checked={allChecked} onChange={toggleAll} disabled={allSelectable.length === 0} />
-              ), render: (r) => selectable(r)
-                ? <input type="checkbox" aria-label={`Select allocation ${r.allocation_id}`} checked={!!selected[r.allocation_id]} onChange={() => toggle(r.allocation_id)} />
-                : null },
-              { key: "head_of_family", label: "Household Head" },
-              { key: "purok", label: "Purok" },
-              { key: "item_name", label: "Item" },
-              { key: "quantity", label: "Quantity", render: (r) => `${r.quantity} ${r.unit}` },
-              { key: "status", label: "Status", render: (r) => <AllocationStatusBadge allocation={r} /> },
-              { key: "ready", label: "Verified Schedule", render: (r) => r.ready_at
-                ? <span style={{ fontSize: 13 }}>{formatSchedule(r.ready_schedule_date, r.ready_schedule_time)}<br />{r.ready_location}</span>
-                : "—" },
-              { key: "actions", label: filter === "distributed" ? "Distributed" : "Actions", render: (row) => (row.status === "Distributed"
-                ? <span style={{ fontSize: 13 }}>{String(row.distributed_at || "").slice(0, 16)}<br />{row.distributed_by_name || ""}
-                    {row.received_quantity != null && Number(row.received_quantity) !== Number(row.quantity) && <><br />received {row.received_quantity} of {row.quantity}</>}</span>
-                : <button className="btn btn-secondary btn-sm" onClick={() => openDistribute(row)}>
-                  Mark as Distributed
-                </button>
-              )},
-            ]}
-            rows={rows}
-            emptyText="There are no approved Relief Allocations waiting for distribution."
-          />
-        )}
+              { key: "household", label: "Household", render: (r) => <>{r.head_of_family}<br /><small>{purokLabel(r.purok)} · ID {r.household_id}</small></> },
+              { key: "ready_score", label: "Score", render: (r) => <><strong>{r.ready_score} / 100</strong><br /><span className={`badge ${PRIORITY_BADGE[r.ready_priority] || "badge-pending"}`}>{r.ready_priority}</span></> },
+              { key: "breakdown", label: "Breakdown", render: (r) => <small style={{ whiteSpace: "normal" }}>{COMPONENTS.map(([k, label, max]) => `${label} ${r.breakdown?.[k] ?? "—"}/${max}`).join(" · ")}</small> },
+              { key: "items", label: "Planned items", render: (r) => <ul className="ready-items">{r.items.map((i) => <li key={i.allocation_item_id}>{i.planned_qty} {i.unit} {i.item_name}</li>)}</ul> },
+              { key: "assessed", label: "Assessed by", render: (r) => <>{r.assessed_by_name || "—"}<br /><small>Visit {r.field_visit_date || "—"}</small></> },
+              { key: "action", label: "Action", render: (r) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <button className="btn btn-ghost btn-sm" onClick={() => setDetail(r)}>View</button>
+                <button className="btn btn-primary btn-sm" onClick={() => { setNotice(""); setCompleting(r); }}>Complete distribution</button>
+              </div> },
+            ]} /></div>
+        </>}
       </div>
 
-      {dist && (
-        <Modal title="Record Distribution" onClose={() => setDist(null)}>
-          <form onSubmit={submitDistribute}>
-            {dist.error && <div className="alert alert-error">{dist.error}</div>}
-            <p style={{ fontSize: 13.5, marginTop: 0 }}>
-              {dist.row.head_of_family} — {dist.row.quantity} {dist.row.unit} of {dist.row.item_name}. Only the quantity actually handed over is deducted from
-              inventory; anything not handed over becomes available again. This cannot be undone.
-            </p>
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="ds-qty">Quantity received</label>
-                <input id="ds-qty" type="number" min="1" max={dist.row.quantity} step="1" required value={dist.received}
-                  onChange={(e) => setDist({ ...dist, received: e.target.value })} />
-              </div>
-            </div>
-            <div className="form-group">
-              <label htmlFor="ds-remarks">Remarks {Number(dist.received) < Number(dist.row.quantity) ? "(required for a partial receipt)" : "(optional)"}</label>
-              <input id="ds-remarks" value={dist.remarks} maxLength={300} onChange={(e) => setDist({ ...dist, remarks: e.target.value })}
-                placeholder="e.g. Only 2 packs left at the site; remainder to follow" required={Number(dist.received) < Number(dist.row.quantity)} />
-            </div>
-            <div className="modal-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setDist(null)}>Close</button>
-              <button type="submit" className="btn btn-primary" disabled={dist.saving}>{dist.saving ? "Saving…" : "Confirm Distribution"}</button>
-            </div>
-          </form>
+      {detail && (
+        <Modal title={`Ready for distribution — ${detail.head_of_family}`} onClose={() => setDetail(null)}>
+          <p><span className={`badge ${PRIORITY_BADGE[detail.ready_priority] || "badge-pending"}`}>{detail.ready_priority}</span> <strong>{detail.ready_score} / 100</strong> · Ready since {detail.ready_at}</p>
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="Score at Ready">
+            <table><thead><tr><th>Criterion</th><th>Points</th></tr></thead>
+              <tbody>{COMPONENTS.map(([k, label, max]) => <tr key={k}><th scope="row">{label}{k === "damage" && detail.damage_classification ? ` (${damageLabel(detail.damage_classification)})` : ""}</th><td>{detail.breakdown?.[k] ?? "—"} / {max}</td></tr>)}</tbody>
+            </table>
+          </div>
+          <p><strong>Field Officer:</strong> {detail.assessed_by_name || "—"} · <strong>Visit:</strong> {detail.field_visit_date || "—"}</p>
+          <h4>Planned items</h4>
+          <ul className="ready-items">{detail.items.map((i) => <li key={i.allocation_item_id}>{i.planned_qty} {i.unit} {i.item_name} <small>(in stock {i.current_stock ?? "—"})</small></li>)}</ul>
+          <div className="modal-actions">
+            <button className="btn btn-ghost" onClick={() => setDetail(null)}>Close</button>
+            <button className="btn btn-primary" onClick={() => { setCompleting(detail); setDetail(null); }}>Complete distribution</button>
+          </div>
         </Modal>
       )}
-
-      {showReady && (
-        <MarkReadyModal
-          allocations={chosen}
-          onClose={() => setShowReady(false)}
-          onDone={(msg) => { setShowReady(false); setSelected({}); setNotice(msg); load(); }}
-        />
-      )}
+      {completing && <CompleteDistributionModal allocation={completing} onClose={() => setCompleting(null)} onCompleted={completed} />}
     </>
   );
 }

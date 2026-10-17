@@ -5,7 +5,7 @@ import MetricRow from "../../components/ui/MetricRow.jsx";
 import PageHeader from "../../components/ui/PageHeader.jsx";
 import usePolling from "../../hooks/usePolling.js";
 import { useAuth } from "../../context/AuthContext.jsx";
-import { getReports, getPriorityList, getAllocations } from "../../services/api.jsx";
+import { getReports, getPriorityList, getReadyAllocations } from "../../services/api.jsx";
 
 /**
  * Relief Personnel Dashboard (Phase 23) — the modules this role works in:
@@ -18,7 +18,7 @@ export default function PersonnelDashboard() {
   const [data, setData] = useState(null);
 
   const load = useCallback(async () => {
-    const r = await Promise.allSettled([getReports(), getPriorityList(), getAllocations()]);
+    const r = await Promise.allSettled([getReports(), getPriorityList(), getReadyAllocations()]);
     const v = (i) => (r[i].status === "fulfilled" ? r[i].value.data.data || [] : []);
     setData({ reports: v(0), priority: v(1), allocations: v(2) });
   }, []);
@@ -30,16 +30,15 @@ export default function PersonnelDashboard() {
   const pending = reports.filter((x) => x.status === "Pending").length;
   const criticalCount = reports.filter((x) => x.severity === "Critical").length;
   const highCount = reports.filter((x) => x.severity === "High").length;
-  const review = data.priority.filter((x) => x.eligible && x.needs_review).length;
-  const top = data.priority.filter((x) => x.eligible).slice(0, 3);
-  const approved = data.allocations.filter((a) => a.status === "Approved");
-  const ready = approved.filter((a) => a.ready_at).length;
+  const review = data.priority.filter((x) => x.needs_review).length;
+  const top = data.priority.filter((x) => x.score_complete).slice(0, 3);
+  const ready = data.allocations.length; // the server returns only Ready allocations in this Purok
 
   return (
     <>
       <PageHeader
         title={`Welcome, ${user.full_name.split(" ")[0]}`}
-        description="Record incidents and field assessments, monitor affected households, and prepare and distribute approved relief."
+        description={`Assigned area: ${user.assigned_purok || "awaiting Purok assignment"}. Record incidents, monitor affected households, and complete Ready for Distribution allocations within your Purok.`}
       />
 
       <HazardBanner compact />
@@ -60,7 +59,7 @@ export default function PersonnelDashboard() {
             id="dss" number={2} title="DSS / Household Priorities"
             action={{ to: "/personnel/priority", label: "Priority Assessment" }}
           >
-            <MetricRow label="Top priority" value={top[0] ? `${top[0].head_of_family} (${top[0].priority_score})` : "—"} />
+            <MetricRow label="Top priority" value={top[0] ? `${top[0].head_of_family} (${top[0].final_score}/100)` : "—"} />
             <MetricRow label="Needing manual review" value={review} alertWhen="pending" />
           </ModuleCard>
 
@@ -78,10 +77,9 @@ export default function PersonnelDashboard() {
 
           <ModuleCard
             id="rel" number={4} title="Relief Allocation"
-            action={{ to: "/personnel/assigned", label: "Relief Allocations" }}
+            action={{ to: "/personnel/assigned", label: "Ready for Distribution" }}
           >
-            <MetricRow label="Approved, not yet ready" value={approved.length - ready} alertWhen="pending" />
-            <MetricRow label="Ready for distribution" value={ready} />
+            <MetricRow label="Ready for distribution" value={ready} alertWhen="pending" />
           </ModuleCard>
         </div>
       </section>

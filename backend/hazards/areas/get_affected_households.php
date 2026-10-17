@@ -16,7 +16,7 @@ require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../lib/affected_areas.php';
 require_once __DIR__ . '/../../lib/requests.php';
 
-require_login(['admin', 'relief_personnel']);
+require_login(['admin', 'relief_personnel', 'field_officer']);
 $conn = (new Database())->connect();
 phase20_require_tables($conn);
 
@@ -35,6 +35,7 @@ foreach ($res['inside'] as &$h) {
     $p = $priority[$h['household_id']] ?? null;
     $h['priority_score'] = $p['priority_score'] ?? null;
     $h['priority_level'] = $p['priority_level'] ?? null;
+    $h['score_complete'] = $p['score_complete'] ?? false; $h['provisional'] = !($p['score_complete'] ?? false); $h['final_score'] = $p['final_score'] ?? null; $h['automatic_subtotal'] = $p['automatic_subtotal'] ?? null; $h['score_breakdown'] = $p['score_breakdown'] ?? null; $h['assessment_status'] = $p['assessment_status'] ?? 'Not Yet Assessed';
     $h += $details[$h['household_id']] ?? [];
 }
 unset($h);

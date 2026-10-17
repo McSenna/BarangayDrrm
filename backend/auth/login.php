@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../users/registration.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -40,6 +41,7 @@ function record_login_attempt($conn, $user_id, $email, $status, $reason, $ip) {
 $max_fail = max(3, intval(app_config('LOGIN_MAX_FAILURES') ?: 8));
 $lock_min = max(1, intval(app_config('LOGIN_LOCK_MINUTES') ?: 15));
 $recent = $conn->prepare("SELECT COUNT(*) FROM login_history WHERE email_attempted = :e AND login_status = 'Failed'
+                          AND (failure_reason IS NULL OR failure_reason NOT IN ('Registration pending', 'Registration rejected'))
                           AND login_at >= NOW() - INTERVAL $lock_min MINUTE AND login_at > COALESCE(
                               (SELECT MAX(login_at) FROM login_history WHERE email_attempted = :e2 AND login_status = 'Success'), '1970-01-01')");
 $recent->execute([':e' => $email, ':e2' => $email]);
@@ -61,6 +63,14 @@ if (!$user || !password_verify($password, $user['password'])) {
         $user ? 'Incorrect password' : 'Unknown email', $ip_address);
     http_response_code(401);
     echo json_encode(["success" => false, "message" => "Invalid email or password."]);
+    exit();
+}
+
+$approval = registration_status($conn, $user['user_id']);
+if ($approval !== 'approved') {
+    record_login_attempt($conn, $user['user_id'], $email, 'Failed', 'Registration ' . $approval, $ip_address);
+    http_response_code(403);
+    echo json_encode(['success' => false, 'registration_status' => $approval, 'message' => registration_message($approval)]);
     exit();
 }
 

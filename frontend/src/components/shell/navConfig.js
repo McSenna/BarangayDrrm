@@ -93,10 +93,7 @@ export const ADMIN_NAV = [
         label: "Administration",
         icon: Settings,
         children: [
-          { to: "/admin/households", label: "Households" },
-          { to: "/admin/residents", label: "Residents" },
-          { to: "/admin/personnel", label: "Relief Personnel" },
-          { to: "/admin/administrators", label: "Administrators" },
+          { to: "/admin/administrators", label: "Users", also: ["/admin/households", "/admin/residents", "/admin/personnel"] },
           { to: "/admin/audit-logs", label: "Audit Log" },
           { to: "/admin/system-settings", label: "System Settings" },
         ],
@@ -196,5 +193,5 @@ export function matchesPath(pathname, to, end = false) {
 export function itemContainsPath(item, pathname) {
   if (item.to && matchesPath(pathname, item.to, item.end)) return true;
   if ((item.also || []).some((p) => matchesPath(pathname, p))) return true;
-  return (item.children || []).some((c) => matchesPath(pathname, c.to, c.end));
+  return (item.children || []).some((child) => itemContainsPath(child, pathname));
 }

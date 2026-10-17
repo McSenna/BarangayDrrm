@@ -106,14 +106,16 @@ function require_login($allowed_roles = [])
     // immediately, and the role used for authorization comes from the database,
     // not from what the session remembered at login time.
     require_once __DIR__ . '/database.php';
-    $account = (new Database())->connect()->prepare("SELECT role, is_active FROM users WHERE user_id = :user_id");
+    require_once __DIR__ . '/../users/registration.php';
+    $auth_conn = (new Database())->connect();
+    $account = $auth_conn->prepare("SELECT role, is_active FROM users WHERE user_id = :user_id");
     $account->execute([':user_id' => $_SESSION['user_id']]);
     $row = $account->fetch(PDO::FETCH_ASSOC);
-    if (!$row || intval($row['is_active']) === 0) {
+    if (!$row || intval($row['is_active']) === 0 || registration_status($auth_conn, $_SESSION['user_id']) !== 'approved') {
         $_SESSION = [];
         session_destroy();
         http_response_code(401);
-        echo json_encode(["success" => false, "message" => "Your account is no longer active. Please contact the barangay office for assistance."]);
+        echo json_encode(["success" => false, "message" => "Your account does not currently have access. Please contact the barangay office for assistance."]);
         exit();
     }
     $_SESSION['role'] = $row['role'];

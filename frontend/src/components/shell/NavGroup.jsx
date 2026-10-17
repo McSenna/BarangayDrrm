@@ -1,7 +1,9 @@
 import { useId } from "react";
+import { useLocation } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import NavBadge from "./NavBadge.jsx";
 import NavItem from "./NavItem.jsx";
+import { itemContainsPath } from "./navConfig.js";
 
 /**
  * A collapsible sidebar group (e.g. Household Priorities -> Priority
@@ -10,6 +12,7 @@ import NavItem from "./NavItem.jsx";
  */
 export default function NavGroup({ label, icon: Icon, children, badge, open, current, onToggle }) {
   const listId = useId();
+  const location = useLocation();
   return (
     <div className={`nav-group${current ? " is-current" : ""}`}>
       <button
@@ -28,7 +31,7 @@ export default function NavGroup({ label, icon: Icon, children, badge, open, cur
         <ul id={listId} className="nav-children" role="list">
           {children.map((child) => (
             <li key={child.to}>
-              <NavItem {...child} nested />
+              <NavItem {...child} nested highlight={(child.also || []).length > 0 && itemContainsPath(child, location.pathname)} />
             </li>
           ))}
         </ul>

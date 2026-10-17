@@ -4,7 +4,7 @@ import DataTable from "../../components/DataTable.jsx";
 import Modal from "../../components/Modal.jsx";
 import { getUsers, getUser, toggleUserStatus, getHouseholds, linkHouseholdResident } from "../../services/api.jsx";
 
-export default function Residents() {
+export default function Residents({ onAccountsChanged }) {
   const [residents, setResidents] = useState([]);
   const [households, setHouseholds] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -83,8 +83,9 @@ export default function Residents() {
     const next = row.is_active ? 0 : 1;
     if (!confirm(next ? `Activate ${row.full_name}'s account? This Resident will be able to log in again.` : `Deactivate ${row.full_name}'s account? This Resident will not be able to log in until the account is activated again.`)) return;
     try {
-      await toggleUserStatus(row.user_id, next);
+      await toggleUserStatus(row.user_id, next, row.version);
       load();
+      onAccountsChanged?.();
     } catch (err) {
       alert(err.response?.data?.message || "Could not update account status.");
     }
@@ -94,7 +95,7 @@ export default function Residents() {
     <>
       <div className="page-header">
         <div>
-          <h1>Resident Management</h1>
+          <h2>Resident masterlist</h2>
           <p>View, search, and manage resident accounts and their household links.</p>
         </div>
       </div>

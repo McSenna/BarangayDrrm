@@ -163,11 +163,15 @@ export const getPublicHazardStatus = () => api.get("hazards/get_public_status.ph
 // ---------------------------------------------------------------
 export const getUsers = (params = {}) => api.get("users/get_users.php", { params });
 export const getUser = (user_id) => api.get("users/get_user.php", { params: { user_id } });
+export const reviewRegistration = (user_id, decision, version) => api.post("users/review_registration.php", { user_id, decision, version });
 export const addUser = (data) => api.post("users/add_user.php", data);
 export const updateUser = (data) => api.put("users/update_user.php", data);
 export const deleteUser = (user_id) => api.delete("users/delete_user.php", { data: { user_id } });
-export const toggleUserStatus = (user_id, is_active) =>
-  api.post("users/toggle_status.php", { user_id, is_active });
+export const toggleUserStatus = (user_id, is_active, version) =>
+  api.post("users/toggle_status.php", { user_id, is_active, ...(version ? { version } : {}) });
+export const exportUsers = (params) => api.get("users/get_users.php", {
+  params: { ...params, managed: 1, export: "csv" }, responseType: "blob",
+});
 
 // ---------------------------------------------------------------
 // Household <-> Resident linking

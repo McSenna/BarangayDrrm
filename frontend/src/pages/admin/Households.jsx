@@ -214,7 +214,7 @@ export default function Households() {
     <>
       <div className="page-header">
         <div>
-          <h1>Household Management</h1>
+          <h2>Household masterlist</h2>
           <p>Manage household records, household members, and vulnerable member information.</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>

@@ -10,7 +10,6 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import DashboardLayout from "./components/DashboardLayout.jsx";
 
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
-import Households from "./pages/admin/Households.jsx";
 import DisasterReports from "./pages/admin/DisasterReports.jsx";
 import Inventory from "./pages/admin/Inventory.jsx";
 import InventoryLogs from "./pages/admin/InventoryLogs.jsx";
@@ -18,8 +17,6 @@ import ReliefAllocation from "./pages/admin/ReliefAllocation.jsx";
 import PriorityList from "./pages/admin/PriorityList.jsx";
 import ReliefRecommendations from "./pages/admin/ReliefRecommendations.jsx";
 import AdminUsers from "./pages/admin/AdminUsers.jsx";
-import Residents from "./pages/admin/Residents.jsx";
-import Personnel from "./pages/admin/Personnel.jsx";
 import HazardAlerts from "./pages/admin/HazardAlerts.jsx";
 import SendSMS from "./pages/admin/SendSMS.jsx";
 import SmsLogs from "./pages/admin/SmsLogs.jsx";
@@ -73,7 +70,7 @@ export default function App() {
       } />
       <Route path="/admin/households" element={
         <ProtectedRoute allowedRoles={["admin"]}>
-          <DashboardLayout><Households /></DashboardLayout>
+          <Navigate to="/admin/administrators?tab=households" replace />
         </ProtectedRoute>
       } />
       <Route path="/admin/reports" element={
@@ -118,12 +115,12 @@ export default function App() {
       } />
       <Route path="/admin/residents" element={
         <ProtectedRoute allowedRoles={["admin"]}>
-          <DashboardLayout><Residents /></DashboardLayout>
+          <Navigate to="/admin/administrators?tab=residents" replace />
         </ProtectedRoute>
       } />
       <Route path="/admin/personnel" element={
         <ProtectedRoute allowedRoles={["admin"]}>
-          <DashboardLayout><Personnel /></DashboardLayout>
+          <Navigate to="/admin/administrators?tab=personnel" replace />
         </ProtectedRoute>
       } />
       <Route path="/admin/disaster-events" element={

@@ -43,7 +43,7 @@ export default function Hero({ data }) {
         </div>
         <EmergencyLine hotline={data.config.hotline} />
       </div>
-      <MapPanel hazard={data.hazard} loading={data.loading} />
+      <MapPanel hazard={data.hazard} />
     </section>
   );
 }

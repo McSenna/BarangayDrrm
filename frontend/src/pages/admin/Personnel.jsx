@@ -5,7 +5,7 @@ import { getUsers, addUser, updateUser, toggleUserStatus, getAllocations } from 
 
 const EMPTY_FORM = { full_name: "", email: "", password: "", contact_number: "" };
 
-export default function Personnel() {
+export default function Personnel({ onAccountsChanged }) {
   const [personnel, setPersonnel] = useState([]);
   const [allocations, setAllocations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,7 +31,7 @@ export default function Personnel() {
 
   const openAdd = () => { setForm(EMPTY_FORM); setEditingId(null); setModalOpen(true); };
   const openEdit = (row) => {
-    setForm({ full_name: row.full_name, email: row.email, password: "", contact_number: row.contact_number || "" });
+    setForm({ full_name: row.full_name, email: row.email, password: "", contact_number: row.contact_number || "", version: row.version });
     setEditingId(row.user_id);
     setModalOpen(true);
   };
@@ -48,6 +48,7 @@ export default function Personnel() {
       }
       setModalOpen(false);
       load();
+      onAccountsChanged?.();
     } catch (err) {
       alert(err.response?.data?.message || "We couldn't save this account. Please check the details and try again.");
     }
@@ -57,8 +58,9 @@ export default function Personnel() {
     const next = row.is_active ? 0 : 1;
     if (!confirm(next ? `Activate ${row.full_name}'s account? This Relief Personnel account will be able to log in again.` : `Deactivate ${row.full_name}'s account? This Relief Personnel account will not be able to log in until the account is activated again.`)) return;
     try {
-      await toggleUserStatus(row.user_id, next);
+      await toggleUserStatus(row.user_id, next, row.version);
       load();
+      onAccountsChanged?.();
     } catch (err) {
       alert(err.response?.data?.message || "Could not update account status.");
     }
@@ -68,7 +70,7 @@ export default function Personnel() {
     <>
       <div className="page-header">
         <div>
-          <h1>Relief Personnel Management</h1>
+          <h2>Relief Personnel</h2>
           <p>Manage Relief Personnel accounts. Relief Personnel distribute approved relief to households and record each distribution.</p>
         </div>
         <button className="btn btn-primary" onClick={openAdd}>+ Add Relief Personnel</button>

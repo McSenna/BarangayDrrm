@@ -47,7 +47,6 @@ export const MAP_COLORS = {
   myLocation: GEO_BLUE,
   neutral: NEUTRAL,
   mutedText: SUBTLE,
-  mask: SLATE,            // public map: dims everything outside the barangay into the page background
 };
 
 // GIS map: Purok designation polygons. Red is reserved for the flood-prone

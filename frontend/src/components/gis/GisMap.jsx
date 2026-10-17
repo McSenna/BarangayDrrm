@@ -3,7 +3,7 @@ import { Circle, GeoJSON, MapContainer, Marker, Pane, Polygon, Polyline, Popup, 
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
-  BARANGAY_BOUNDS, MAX_BOUNDS, OVERVIEW_PADDING, OUTSIDE_MASK, PUROKS, PUROK_BY_NAME, unverifiedPuroks,
+  BARANGAY_BOUNDS, MAX_BOUNDS, OVERVIEW_PADDING, OUTSIDE_MASK, PUROKS, PUROK_BY_NAME, unverifiedPuroks, FLOOD_EXCLUSIONS,
   binitayanBoundary, insideBarangay,
 } from "./gisGeometry.js";
 import { HouseholdPopup, PurokPopup } from "./GisPopups.jsx";
@@ -178,7 +178,7 @@ function ZoneLayer({ purokStats, selectedPurok, interactive, onZoomPurok, onFilt
     return (
       <GeoJSON
         key={`zone-${p.name}-${selectedPurok || "all"}-${interactive}`}
-        data={p.feature}
+        data={p.zoneFeature}
         style={() => style}
         interactive={interactive}
         eventHandlers={interactive ? {
@@ -297,6 +297,11 @@ export default function GisMap({
         <Pane name="gis-zones" style={{ zIndex: Z.zones }}>
           <ZoneLayer purokStats={purokStats} selectedPurok={selectedPurok} interactive={!assigning}
             onZoomPurok={onZoomPurok} onFilterPurok={onFilterPurok} />
+          {/* Areas cut out of the flood-prone fill (Daraga Public Cemetery): dashed outline, no fill. */}
+          {FLOOD_EXCLUSIONS.map((e) => (
+            <GeoJSON key={`excluded-${e.id}`} data={e.feature} interactive={false}
+              style={() => ({ color: MAP_COLORS.boundary, weight: 1.5, opacity: 0.85, dashArray: "4 4", fill: false })} />
+          ))}
           {unverifiedPuroks.filter((it) => it.feature?.geometry).map((it) => (
             <GeoJSON key={`unverified-${it.name}`} data={it.feature} interactive={false}
               style={() => ({ color: MAP_COLORS.mutedText, weight: 1.5, dashArray: "6 6", fill: false })} />

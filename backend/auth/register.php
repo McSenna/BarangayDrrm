@@ -1,82 +1,26 @@
 <?php
 require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
-
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(["success" => false, "message" => "Method not allowed."]);
-    exit();
-}
-
-$data = json_decode(file_get_contents("php://input"), true);
-
-$full_name = trim($data['full_name'] ?? '');
-$email = trim($data['email'] ?? '');
-$password = $data['password'] ?? '';
-$contact_number = trim($data['contact_number'] ?? '');
-
-// Public self-registration ALWAYS creates a Resident account (Phase 17 Security Fix 1).
-// Any "role" sent by the client is ignored. Relief personnel and admin accounts are
-// created only by an administrator (users/add_user.php) or setup_admin.php.
-$role = 'resident';
-
-if ($full_name === '' || $email === '' || $password === '') {
-    http_response_code(400);
-    echo json_encode(["success" => false, "message" => "Full name, email, and password are required."]);
-    exit();
-}
-
-if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    http_response_code(400);
-    echo json_encode(["success" => false, "message" => "Please enter a valid email address."]);
-    exit();
-}
-
-if (strlen($password) < 6) {
-    http_response_code(400);
-    echo json_encode(["success" => false, "message" => "Password must be at least 6 characters."]);
-    exit();
-}
-
-$database = new Database();
-$conn = $database->connect();
-
-// Check for duplicate email
-$check = $conn->prepare("SELECT user_id FROM users WHERE email = :email");
-$check->execute([':email' => $email]);
-if ($check->fetch()) {
-    http_response_code(409);
-    echo json_encode(["success" => false, "message" => "An account with this email already exists."]);
-    exit();
-}
-
-$hashed_password = password_hash($password, PASSWORD_DEFAULT);
-
-$stmt = $conn->prepare(
-    "INSERT INTO users (full_name, email, password, role, contact_number)
-     VALUES (:full_name, :email, :password, :role, :contact_number)"
-);
-
+require_once __DIR__ . '/../users/management.php';
+$conn = null;
 try {
-    $stmt->execute([
-        ':full_name' => $full_name,
-        ':email' => $email,
-        ':password' => $hashed_password,
-        ':role' => $role,
-        ':contact_number' => $contact_number,
-    ]);
-
-    $user_id = $conn->lastInsertId();
-    log_action($conn, "User registered", "New $role account: $email");
-
+    $data = um_body('POST');
+    // Preserve public registration's fixed resident role. Client-supplied role,
+    // activation and approval fields never influence the stored account.
+    $profile = um_profile([
+        'full_name' => $data['full_name'] ?? '', 'email' => $data['email'] ?? '',
+        'password' => $data['password'] ?? '', 'contact_number' => $data['contact_number'] ?? '',
+        'role' => 'resident',
+    ], true);
+    $conn = (new Database())->connect();
+    if (!registration_ready($conn)) um_fail(503, 'Registration is temporarily unavailable. Please contact the barangay office.');
+    $conn->beginTransaction();
+    $stmt = $conn->prepare('INSERT INTO users (full_name, email, role, contact_number, password) VALUES (?, ?, ?, ?, ?)');
+    $stmt->execute([...array_values($profile), password_hash($data['password'], PASSWORD_DEFAULT)]);
+    $id = intval($conn->lastInsertId());
+    $conn->prepare("INSERT INTO user_registration_requests (user_id, status) VALUES (?, 'pending')")->execute([$id]);
+    log_action($conn, 'Registration requested', "user_id: $id; resident");
+    $conn->commit();
     http_response_code(201);
-    echo json_encode([
-        "success" => true,
-        "message" => "Registration successful. You may now log in.",
-        "user_id" => $user_id
-    ]);
-} catch (PDOException $e) {
-    http_response_code(500);
-    error_log("auth/register.php: " . $e->getMessage());
-    echo json_encode(["success" => false, "message" => "We couldn't complete your registration. Please try again."]);
-}
+    echo json_encode(['success' => true, 'message' => 'Registration submitted. Please wait for barangay approval before signing in.', 'user_id' => $id, 'registration_status' => 'pending']);
+} catch (Throwable $e) { um_error($e, $conn); }

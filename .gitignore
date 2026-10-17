@@ -11,3 +11,5 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 
 rm.md
+# Local, randomly generated test credentials and browser captures.
+tests/.user-management-local/

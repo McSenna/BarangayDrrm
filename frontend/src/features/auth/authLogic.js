@@ -3,8 +3,8 @@
  * them with plain Node: where to go after logging in, which `next` values are
  * safe, how server responses become messages, and client-side validation.
  *
- * The server (backend/auth/login.php) is unchanged: 400 missing fields, 401
- * wrong email or password (deliberately generic), 403 account deactivated,
+ * The server (backend/auth/login.php): 400 missing fields, 401
+ * wrong email or password (deliberately generic), 403 inactive/unapproved account,
  * 429 temporarily locked after repeated failures.
  */
 
@@ -85,8 +85,9 @@ export function loginErrorFor(error) {
     return { kind: "throttled", message: `Too many attempts. Try again in ${minutes} ${minutes === 1 ? "minute" : "minutes"}.` };
   }
   if (status === 403) {
-    // The server has no "awaiting verification" state today; if one is added
-    // it should say so in its message, and this branch will show it.
+    if (res.data?.registration_status === "rejected") {
+      return { kind: "disabled", message: "Your registration was rejected. Contact the barangay office for assistance." };
+    }
     if (/verif|pending|approval/i.test(res.data?.message || "")) {
       return { kind: "pending", message: "Your account is waiting for barangay verification." };
     }

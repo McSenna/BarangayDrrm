@@ -426,6 +426,7 @@
 .gis-key { display: inline-block; flex-shrink: 0; width: 20px; height: 13px; border-radius: 3px; }
 .gis-key--flood { background: color-mix(in srgb, var(--color-zone-flood) 35%, var(--color-white)); border: 2px solid var(--color-red-ink); }
 .gis-key--neutral { background: color-mix(in srgb, var(--color-zone-neutral) 22%, var(--color-white)); border: 1.5px solid var(--color-text-subtle); }
+.gis-key--excluded { background: var(--color-white); border: 1.5px dashed var(--color-navy); }
 .gis-key--boundary { height: 3px; border-radius: 2px; background: var(--color-navy); }
 .gis-key--hazard { width: 16px; height: 16px; margin: 0 2px; border-radius: 50%; border: 2px dashed var(--color-red); }
 .gis-key--area { width: 16px; height: 16px; margin: 0 2px; border-radius: 50%; border: 3px solid var(--color-map-area); }

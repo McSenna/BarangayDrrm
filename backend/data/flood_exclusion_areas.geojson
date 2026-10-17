@@ -1,0 +1,39 @@
+{
+  "type": "FeatureCollection",
+  "properties": {
+    "purpose": "Areas excluded from the designated flood-prone overlay (Puroks 1-4). They are cut out of the flood-zone DISPLAY geometry only; the Purok boundaries and the barangay boundary are unchanged.",
+    "coordinate_order": "[longitude, latitude] (GeoJSON / WGS84)",
+    "derived_file": "binitayan_flood_zone_display.geojson (rebuild with frontend/scripts/build_flood_zone_display.mjs)",
+    "backend_copy": "backend/data/flood_exclusion_areas.geojson (byte-for-byte copy, written by the same script)"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "daraga-public-cemetery",
+        "name": "Daraga Public Cemetery",
+        "kind": "cemetery",
+        "excluded_from": "designated flood-prone overlay",
+        "source": "OpenStreetMap way 158631584 (landuse=cemetery, name=Daraga Public Cemetery), version 4, last edited 2024-10-03T01:59:14Z",
+        "source_url": "https://www.openstreetmap.org/way/158631584",
+        "licence": "Open Database License (ODbL) 1.0, (c) OpenStreetMap contributors",
+        "retrieved": "2026-10-16",
+        "note": "Footprint copied unchanged from OpenStreetMap (9 positions, closed). It is a community-mapped outline, not a surveyed property boundary."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [123.7141121, 13.1539059],
+          [123.7140501, 13.1549328],
+          [123.714369, 13.1550467],
+          [123.7147623, 13.1552255],
+          [123.7147992, 13.1550442],
+          [123.7152265, 13.1550299],
+          [123.7152554, 13.1539482],
+          [123.7146915, 13.153885],
+          [123.7141121, 13.1539059]
+        ]]
+      }
+    }
+  ]
+}

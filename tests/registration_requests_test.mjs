@@ -1,0 +1,63 @@
+import assert from 'node:assert/strict';
+import { spawn, execFileSync } from 'node:child_process';
+const php = process.env.PHP_BIN || 'C:/xampp/php/php.exe';
+const fixture = JSON.parse(execFileSync(php, ['tests/user_management_fixture.php'], { encoding: 'utf8' }));
+const base = 'http://127.0.0.1:8099/backend/';
+const server = spawn(php, ['-S', '127.0.0.1:8099', '-t', '.'], { env: { ...process.env, DB_HOST: '127.0.0.1', DB_NAME: fixture.database }, stdio: 'ignore' });
+let checks = 0;
+const check = (value, label) => { assert.ok(value, label); checks++; console.log(`PASS ${label}`); };
+async function call(path, method = 'GET', data, cookie) {
+  const res = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) }, body: data ? JSON.stringify(data) : undefined });
+  const text = await res.text();
+  return { status: res.status, data: JSON.parse(text), cookie: res.headers.get('set-cookie')?.split(';')[0] };
+}
+const credentials = (email) => ({ email, password: fixture.password });
+try {
+  for (let n = 0; n < 50; n++) { try { await fetch(base + 'auth/session.php'); break; } catch { await new Promise((r) => setTimeout(r, 100)); } }
+  const admin = await call('auth/login.php', 'POST', credentials('admin@example.test'));
+  check(admin.status === 200, 'existing admin retains access');
+  const resident = await call('auth/login.php', 'POST', credentials('resident@example.test'));
+  check(resident.status === 200, 'existing resident retains access');
+  const create = await call('auth/register.php', 'POST', { ...credentials('pending@example.test'), full_name: 'Pending Applicant', role: 'admin', registration_status: 'approved', is_active: 1 });
+  check(create.status === 201, 'request submitted');
+  const denied = await call('auth/login.php', 'POST', credentials('pending@example.test'));
+  check(denied.status === 403 && denied.data.registration_status === 'pending', 'pending applicant cannot sign in');
+  const waitingAttempts = [];
+  for (let n = 0; n < 9; n++) waitingAttempts.push((await call('auth/login.php', 'POST', credentials('pending@example.test'))).status);
+  check(waitingAttempts.every((status) => status === 403), 'checking pending approval does not trigger password lockout');
+  const pending = await call('users/get_users.php?managed=1&tab=requests', 'GET', undefined, admin.cookie);
+  check(pending.data.pagination.total === 1 && pending.data.summary.requests === 1, 'Requests lists and counts pending applicants');
+  const row = pending.data.data[0];
+  check(row.role === 'resident' && row.registration_status === 'pending', 'registration cannot inject approval or role');
+  const sessionCookie = () => 'PHPSESSID=' + execFileSync(php, ['-r', "session_start(); $_SESSION = ['user_id' => intval($argv[1]), 'role' => 'resident', 'last_activity' => time()]; echo session_id(); session_write_close();", String(row.user_id)], { encoding: 'utf8' }).trim();
+  check((await call('users/get_my_profile.php', 'GET', undefined, sessionCookie())).status === 401, 'pending session cannot use protected endpoint');
+  check((await call('auth/session.php', 'GET', undefined, sessionCookie())).data.authenticated === false, 'pending session is invalidated on refresh');
+  const decision = { user_id: row.user_id, decision: 'approved', version: row.version };
+  check((await call('users/review_registration.php', 'POST', decision)).status === 401, 'anonymous review denied');
+  check((await call('users/review_registration.php', 'POST', decision, resident.cookie)).status === 403, 'resident review denied');
+  check((await call('users/toggle_status.php', 'POST', { user_id: row.user_id, is_active: 1 }, admin.cookie)).status === 409, 'activation cannot bypass approval');
+  check((await call('users/update_user.php', 'PUT', { user_id: row.user_id, full_name: row.full_name, email: row.email, role: 'admin' }, admin.cookie)).status === 409, 'promotion cannot bypass approval');
+  check((await call('users/review_registration.php', 'POST', { ...decision, version: 'stale' }, admin.cookie)).status === 409, 'stale decision rejected');
+  check((await call('users/review_registration.php', 'POST', { ...decision, version: undefined }, admin.cookie)).status === 400, 'review requires version');
+  check((await call('users/review_registration.php', 'POST', { ...decision, role: 'admin' }, admin.cookie)).status === 400, 'review rejects extra fields');
+  check((await call('users/review_registration.php', 'POST', decision, admin.cookie)).status === 200, 'approval succeeds');
+  check((await call('users/review_registration.php', 'POST', decision, admin.cookie)).status === 409, 'duplicate decision cannot overwrite approval');
+  check((await call('auth/login.php', 'POST', credentials('pending@example.test'))).status === 200, 'approved applicant signs in');
+  const after = await call('users/get_users.php?managed=1&tab=requests', 'GET', undefined, admin.cookie);
+  check(after.data.pagination.total === 0 && after.data.summary.active === 5, 'approval moves account into Active users');
+  await call('auth/register.php', 'POST', { ...credentials('rejected@example.test'), full_name: 'Rejected Applicant' });
+  const beforeReject = await call('users/get_users.php?managed=1&tab=requests', 'GET', undefined, admin.cookie);
+  const rejectRow = beforeReject.data.data[0];
+  check((await call('users/review_registration.php', 'POST', { user_id: rejectRow.user_id, version: rejectRow.version, decision: 'rejected' }, admin.cookie)).status === 200, 'rejection succeeds');
+  const rejected = await call('auth/login.php', 'POST', credentials('rejected@example.test'));
+  check(rejected.status === 403 && rejected.data.registration_status === 'rejected', 'rejected applicant cannot sign in');
+  const history = await call('users/get_users.php?managed=1&tab=rejected', 'GET', undefined, admin.cookie);
+  check(history.data.pagination.total === 1 && history.data.summary.rejected === 1 && history.data.summary.inactive === 1, 'rejected accounts distinct from deactivated');
+  check((await call('users/get_users.php?role=resident', 'GET', undefined, admin.cookie)).data.data.every((r) => r.registration_status === 'approved'), 'legacy masterlist excludes unapproved registrations');
+  const logs = await call('audit/get_logs.php?search=Registration', 'GET', undefined, admin.cookie);
+  check(logs.data.data.some((r) => r.action === 'Registration approved') && logs.data.data.some((r) => r.action === 'Registration rejected'), 'decisions are audited');
+  await call('auth/register.php', 'POST', { ...credentials('wrongpass@example.test'), full_name: 'Wrong password test' });
+  for (let n = 0; n < 8; n++) await call('auth/login.php', 'POST', { email: 'wrongpass@example.test', password: 'incorrect' });
+  check((await call('auth/login.php', 'POST', credentials('wrongpass@example.test'))).status === 429, 'incorrect passwords still trigger throttling');
+  console.log(`PASS: ${checks} registration request checks; isolated database ${fixture.database}`);
+} finally { server.kill(); }

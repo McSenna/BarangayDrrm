@@ -23,9 +23,9 @@ export default function Register() {
     setSuccess("");
     setLoading(true);
     try {
-      await register(form);
-      setSuccess("Registration successful. You may now log in.");
-      setTimeout(() => openLogin({ at: "/", replace: true, email: form.email }), 1500);
+      const response = await register(form);
+      setSuccess(response.data.message || "Registration submitted. Please wait for barangay approval before signing in.");
+      setForm({ ...form, password: "" });
     } catch (err) {
       setError(err.response?.data?.message || "Registration failed. Please try again.");
     } finally {
@@ -39,32 +39,32 @@ export default function Register() {
       <main id="main" tabIndex={-1} className="auth-wrap">
         <div className="auth-card">
           <h2>Create a Resident Account</h2>
-          <div className="sub">Register as a Resident of Barangay Binitayan. Administrator and Relief Personnel accounts are created by the Barangay Administrator.</div>
+          <div className="sub">Register as a Resident of Barangay Binitayan. Your account must be approved by the barangay before you can sign in. Administrator and Relief Personnel accounts are created by the Barangay Administrator.</div>
 
           {error && <div className="alert alert-error">{error}</div>}
-          {success && <div className="alert alert-success">{success}</div>}
+          {success && <div className="alert alert-success" role="status">{success}</div>}
 
-          <form onSubmit={handleSubmit}>
+          {!success && <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label>Full Name</label>
-              <input type="text" name="full_name" value={form.full_name} onChange={handleChange} required />
+              <label htmlFor="registration-name">Full Name</label>
+              <input id="registration-name" type="text" name="full_name" value={form.full_name} maxLength={150} onChange={handleChange} required />
             </div>
             <div className="form-group">
-              <label>Email</label>
-              <input type="email" name="email" value={form.email} onChange={handleChange} required />
+              <label htmlFor="registration-email">Email</label>
+              <input id="registration-email" type="email" name="email" value={form.email} maxLength={150} onChange={handleChange} required />
             </div>
             <div className="form-group">
-              <label>Password (at least 6 characters)</label>
-              <input type="password" name="password" value={form.password} onChange={handleChange} minLength={6} required />
+              <label htmlFor="registration-password">Password (at least 6 characters)</label>
+              <input id="registration-password" type="password" name="password" value={form.password} onChange={handleChange} minLength={6} maxLength={72} required />
             </div>
             <div className="form-group">
-              <label>Contact Number (optional)</label>
-              <input type="text" name="contact_number" value={form.contact_number} onChange={handleChange} placeholder="09XXXXXXXXX" />
+              <label htmlFor="registration-contact">Contact Number (optional)</label>
+              <input id="registration-contact" type="text" name="contact_number" value={form.contact_number} maxLength={20} onChange={handleChange} placeholder="09XXXXXXXXX" />
             </div>
             <button className="btn btn-primary" type="submit" style={{ width: "100%" }} disabled={loading}>
               {loading ? "Creating account…" : "Register"}
             </button>
-          </form>
+          </form>}
 
           <div className="auth-switch">
             Already have an account?{" "}

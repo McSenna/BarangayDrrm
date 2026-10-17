@@ -1,0 +1,214 @@
+{
+  "type": "FeatureCollection",
+  "properties": {
+    "status": "DERIVED display geometry — do not edit by hand; rebuild with frontend/scripts/build_flood_zone_display.mjs",
+    "purpose": "Designated flood-prone Puroks with the areas in flood_exclusion_areas.geojson cut out. Used only to draw the red flood-prone overlay; Purok and barangay boundaries are unchanged.",
+    "coordinate_order": "[longitude, latitude] (GeoJSON / WGS84)",
+    "built_from": [
+      "binitayan_purok_boundaries_candidate.geojson",
+      "flood_exclusion_areas.geojson"
+    ]
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Purok 1",
+        "designation": "flood_prone",
+        "role": "flood_zone_display",
+        "source_fingerprint": "8:989.7082202:105.2442034",
+        "excluded": [
+          {
+            "id": "daraga-public-cemetery",
+            "name": "Daraga Public Cemetery",
+            "removed_area_m2": 22.9,
+            "fingerprint": "9:1113.4313782:118.3909241"
+          }
+        ],
+        "original_area_m2": 36106.4,
+        "display_area_m2": 36083.3,
+        "method": "polygon difference (Purok polygon minus exclusion footprint), polygon-clipping 0.15.7, positions rounded to 7 decimals"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              123.7127464,
+              13.1540416
+            ],
+            [
+              123.714182,
+              13.1534485
+            ],
+            [
+              123.7141272,
+              13.1539054
+            ],
+            [
+              123.7141121,
+              13.1539059
+            ],
+            [
+              123.7140968,
+              13.1541589
+            ],
+            [
+              123.7139969,
+              13.1549923
+            ],
+            [
+              123.7139416,
+              13.1557225
+            ],
+            [
+              123.7135638,
+              13.1557041
+            ],
+            [
+              123.7134187,
+              13.156816
+            ],
+            [
+              123.7129521,
+              13.1566624
+            ],
+            [
+              123.7127464,
+              13.1540416
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Purok 2",
+        "designation": "flood_prone",
+        "role": "flood_zone_display",
+        "source_fingerprint": "15:1855.7155128:197.3339382",
+        "excluded": [
+          {
+            "id": "daraga-public-cemetery",
+            "name": "Daraga Public Cemetery",
+            "removed_area_m2": 14707.6,
+            "fingerprint": "9:1113.4313782:118.3909241"
+          }
+        ],
+        "original_area_m2": 43502.2,
+        "display_area_m2": 28794.8,
+        "method": "polygon difference (Purok polygon minus exclusion footprint), polygon-clipping 0.15.7, positions rounded to 7 decimals"
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                123.7134312,
+                13.1568219
+              ],
+              [
+                123.7135749,
+                13.1557128
+              ],
+              [
+                123.7139541,
+                13.1557348
+              ],
+              [
+                123.7140046,
+                13.1550195
+              ],
+              [
+                123.7140833,
+                13.1543836
+              ],
+              [
+                123.7140501,
+                13.1549328
+              ],
+              [
+                123.714369,
+                13.1550467
+              ],
+              [
+                123.7147623,
+                13.1552255
+              ],
+              [
+                123.7147992,
+                13.1550442
+              ],
+              [
+                123.7149983,
+                13.1550375
+              ],
+              [
+                123.7148965,
+                13.1553845
+              ],
+              [
+                123.7145641,
+                13.1558507
+              ],
+              [
+                123.7144383,
+                13.1563337
+              ],
+              [
+                123.7143332,
+                13.1571182
+              ],
+              [
+                123.7143338,
+                13.1571184
+              ],
+              [
+                123.7143355,
+                13.1571197
+              ],
+              [
+                123.7134312,
+                13.1568219
+              ]
+            ]
+          ],
+          [
+            [
+              [
+                123.7141425,
+                13.1539048
+              ],
+              [
+                123.7141982,
+                13.1534544
+              ],
+              [
+                123.7146312,
+                13.1532773
+              ],
+              [
+                123.7153122,
+                13.1534277
+              ],
+              [
+                123.7152407,
+                13.1539466
+              ],
+              [
+                123.7146915,
+                13.153885
+              ],
+              [
+                123.7141425,
+                13.1539048
+              ]
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

@@ -123,7 +123,8 @@
   );
 
   /* Soft offset shadow under the barangay outline on the public map. */
-  --shadow-map-outline: drop-shadow(4px 7px 6px rgba(22, 50, 79, 0.28));
+  /* Public map: hairline edge + soft lift under the barangay silhouette (all sides). */
+  --shadow-map-silhouette: drop-shadow(0 0 1px rgba(22, 50, 79, 0.28)) drop-shadow(0 2px 6px rgba(22, 50, 79, 0.12)) drop-shadow(0 12px 14px rgba(22, 50, 79, 0.1));
 
   /* ---------- Login dialog (features/auth) ---------- */
   --color-navy-hover: #0E2236;                       /* primary button hover in the dialog */

@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
 
 require_login(['admin']);
+header('Cache-Control: no-store');
 
 $user_id = intval($_GET['user_id'] ?? 0);
 if ($user_id <= 0) {

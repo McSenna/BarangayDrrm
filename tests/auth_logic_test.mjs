@@ -44,5 +44,7 @@ ok(m.loginErrorFor(err(403, { message: "Account pending barangay verification" }
 ok(m.loginErrorFor({ message: "Network Error" }).kind === "network" && m.loginErrorFor(err(500)).kind === "network" && m.loginErrorFor(err(503)).kind === "network", "no response / 5xx -> network message");
 ok(!JSON.stringify(m.loginErrorFor(err(401, { message: "Invalid email or password." }))).toLowerCase().includes("email does not exist"), "no user enumeration in messages");
 
+// Structured rejection must not be misrepresented as waiting for approval.
+ok(m.loginErrorFor(err(403, { registration_status: 'rejected', message: 'Registration rejected' })).message === 'Your registration was rejected. Contact the barangay office for assistance.', 'rejected registration has a clear sign-in message');
 console.log(`\nAUTH LOGIC TEST: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

@@ -13,6 +13,7 @@ import { getGeoJsonBounds } from "../../utils/geoBounds.js";
 import { isPointInGeoJson } from "../../utils/pointInPolygon.js";
 import { labelPoint } from "../../utils/polygonLabel.js";
 import { floodDesignation } from "../../config/floodZones.js";
+import { FLOOD_EXCLUSIONS, floodZoneShape } from "../../utils/floodZoneGeometry.js";
 
 export { binitayanBoundary };
 
@@ -35,16 +36,26 @@ function outerRings(fc) {
 const WORLD = [[89.9, -179.9], [89.9, 179.9], [-89.9, 179.9], [-89.9, -179.9]];
 export const OUTSIDE_MASK = [WORLD, ...outerRings(binitayanBoundary)];
 
+// `feature` is the Purok boundary (bounds, point lookups); `zoneFeature` is what
+// the designation fill draws: for a flood-prone Purok, its shape with the
+// excluded areas (Daraga Public Cemetery) cut out (utils/floodZoneGeometry.js).
 export const PUROKS = PUROK_BOUNDARIES.items
   .filter((it) => it.valid && it.feature?.geometry)
-  .map((it) => ({
-    name: it.name,
-    short: it.name.replace(/^Purok\s+/, ""),
-    feature: it.feature,
-    designation: floodDesignation(it.name),
-    label: labelPoint(it.feature.geometry.coordinates[0]),
-    bounds: L.latLngBounds(getGeoJsonBounds(it.feature)),
-  }));
+  .map((it) => {
+    const designation = floodDesignation(it.name);
+    const zone = designation === "flood_prone" ? floodZoneShape(it.name, it.feature) : { feature: it.feature, label: null };
+    return {
+      name: it.name,
+      short: it.name.replace(/^Purok\s+/, ""),
+      feature: it.feature,
+      zoneFeature: zone.feature,
+      designation,
+      label: zone.label || labelPoint(it.feature.geometry.coordinates[0]),
+      bounds: L.latLngBounds(getGeoJsonBounds(it.feature)),
+    };
+  });
+
+export { FLOOD_EXCLUSIONS };
 
 export const unverifiedPuroks = PUROK_BOUNDARIES.items.filter((it) => !it.valid);
 

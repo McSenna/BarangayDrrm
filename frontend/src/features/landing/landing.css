@@ -106,8 +106,71 @@
   min-width: 0;
 }
 .lp-map-frame {
-  height: 660px;
+  position: relative;
+  height: 620px;
 }
+
+/* Flood-prone zone map (BarangayMap.jsx / MapPanel.jsx): fixed, map only.
+   No frame: the barangay silhouette sits straight on the hero; the transparent
+   border keeps the box the same size it had with its old 1px frame. */
+.lm-card {
+  border: 1px solid transparent;
+}
+
+/* Purok and excluded-area labels on the map */
+.lm-label-icon {
+  background: none;
+  border: 0;
+}
+.lm-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 1px 2px rgba(22, 50, 79, 0.18);
+}
+.lm-label--flood {
+  background: var(--color-white);
+  color: var(--color-red-ink);
+  border: 1.5px solid var(--color-red-ink);
+}
+.lm-label--neutral {
+  background: var(--color-white);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+.lm-label-short {
+  display: none;
+}
+.lm-excluded-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  max-width: 96px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-white) 88%, transparent);
+  color: var(--color-navy);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  pointer-events: none;
+}
+/* A small map: short Purok labels ("1", "5A"), no cemetery label. */
+.lm {
+  container-type: inline-size;
+}
+@container (max-width: 559.98px) {
+  .lm-map .lm-label-full { display: none; }
+  .lm-map .lm-label-short { display: inline; }
+  .lm-map .lm-excluded-label { display: none; }
+}
+
 .lp-map-skeleton {
   height: 100%;
   border-radius: var(--radius-card-lg);
@@ -120,14 +183,16 @@
   width: 100%;
 }
 .lm .leaflet-container {
-  background: var(--color-slate);
+  background: transparent;
   font-family: var(--font-sans);
 }
-.lm .leaflet-tile-pane {
+/* Tiles are clipped to the barangay outline in JS (SilhouetteClip); the shadow
+   sits on the parent pane so it follows that outline and is not clipped. */
+.lm .lm-tiles {
   filter: grayscale(0.9) contrast(0.92) brightness(1.06);
 }
-.lm .lm-boundary {
-  filter: var(--shadow-map-outline);
+.lm .lm-silhouette {
+  filter: var(--shadow-map-silhouette);
 }
 .lm .leaflet-control-attribution {
   background: transparent;
@@ -182,119 +247,6 @@
   letter-spacing: 0.18em;
   color: var(--color-text-muted);
 }
-.lm-north {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  z-index: 500;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--color-white);
-  border: 1px solid var(--color-border);
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--color-navy);
-}
-.lm-north::before {
-  content: "";
-  width: 0;
-  height: 0;
-  margin-bottom: 1px;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-bottom: 7px solid var(--color-red);
-}
-
-/* Floating cards over the map */
-.map-card {
-  position: absolute;
-  z-index: 600;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 272px;
-  padding: 14px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  background: var(--color-white);
-  box-shadow: var(--shadow-popover);
-}
-.map-card-incidents {
-  top: 16px;
-  left: 16px;
-}
-.map-card-relief {
-  right: 16px;
-  bottom: 34px;
-  overflow: hidden;
-  padding-top: 18px;
-}
-.map-card-relief::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 4px;
-  background: var(--color-green);
-}
-.map-card-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.map-card-title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--color-navy);
-}
-.map-card-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 13.5px;
-  color: var(--color-text);
-}
-.map-card-list li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.map-card-row-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.purok-chip-red {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-  height: 22px;
-  padding: 0 8px;
-  border-radius: var(--radius-pill);
-  background: var(--color-red);
-  color: var(--color-white);
-  font-size: 11.5px;
-  font-weight: 800;
-}
-.dot {
-  width: 10px;
-  height: 10px;
-  flex-shrink: 0;
-  border-radius: 50%;
-}
-.dot-green { background: var(--color-green); }
-.dot-orange { background: var(--color-orange); }
-.dot-navy { background: var(--color-navy); }
-
 /* ---------- Live situation (navy band) ---------- */
 .live {
   background: var(--color-navy);
@@ -711,17 +663,7 @@
 /* ---------- Responsive ---------- */
 @media (min-width: 900px) and (max-width: 1279.98px) {
   .lp-hero { grid-template-columns: minmax(0, 55fr) minmax(0, 45fr); gap: 36px; }
-  .lp-map-frame { height: 440px; }
-}
-/* Below 1280px the floating cards sit under the map (two across) instead of covering it. */
-@media (max-width: 1279.98px) {
-  .lp-hero-map { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
-  .lp-map-frame { grid-column: 1 / -1; }
-  .map-card { position: relative; inset: auto; width: auto; box-shadow: var(--shadow-card); }
-}
-/* In the 900-1279px two-column hero the map column is narrow: stack the cards. */
-@media (min-width: 900px) and (max-width: 1279.98px) {
-  .lp-hero-map { grid-template-columns: minmax(0, 1fr); }
+  .lp-map-frame { height: 520px; }
 }
 @media (max-width: 999.98px) {
   /* Right column would be under 340px: stack it below the alert card. */
@@ -731,13 +673,12 @@
 @media (max-width: 899.98px) {
   .lp-hero { grid-template-columns: minmax(0, 1fr); gap: 36px; padding-top: 40px; }
   .lp-h1 { font-size: clamp(36px, 1.2rem + 4vw, 42px); }
-  .lp-map-frame { height: 540px; }
+  .lp-map-frame { height: 560px; }
 }
 @media (max-width: 639.98px) {
   .lp { --gutter: 20px; --section-y: 48px; }
   .lp-hero { padding-bottom: 48px; }
-  .lp-map-frame { height: 360px; }
-  .lp-hero-map { grid-template-columns: minmax(0, 1fr); }
+  .lp-map-frame { height: 400px; }
   .lp-actions .btn, .alert-actions .btn { width: 100%; }
   .alert-head { padding: 18px; }
   .alert-body, .side-card, .cap-card { padding: 18px; }

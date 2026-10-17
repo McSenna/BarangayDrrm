@@ -77,7 +77,7 @@ barangay-disaster/
    Log in and change it right away under **My Profile → Change Password**.
    The setup scripts only run from the command line — opening them in a
    browser returns "Not found" (Phase 17 Security Fix 2).
-5. Database credentials, allowed CORS origins and the TextBee keys are read from
+5. Database credentials, allowed CORS origins and the httpSMS keys are read from
    `backend/config/app_config.php` (local XAMPP defaults: localhost / root / no password).
    To change them, copy `backend/config/app_config.local.example.php` to
    `app_config.local.php` and edit that file (never commit or share it).
@@ -150,7 +150,7 @@ an admin directly; a full "claim my household" flow was left out of the 30% scop
    **Mark Ready for Distribution** → enter the verified date, optional time,
    location and optional instructions → tick the confirmation → **Mark Ready and
    Notify**. One SMS per household is sent (or logged "Not Configured" while
-   TextBee is off).
+   httpSMS is off).
 7. **Log in as Resident** → **Relief Allocation Status** → confirm the item shows
    "Ready for Distribution" with the schedule and location.
 8. **Log in as Relief Personnel** → **Approved Allocations** → **Mark as Distributed**.
@@ -169,7 +169,7 @@ an admin directly; a full "claim my household" flow was left out of the 30% scop
 - Sessions (PHP `$_SESSION`) are used for authentication; the frontend sends
   `withCredentials: true` so the session cookie is included in every request.
 - Advanced GIS, AI/ML prediction, disaster forecasting and GPS tracking are not part
-  of this system. Notifications are in-app plus SMS through TextBee (Phase 10/19).
+  of this system. Notifications are in-app plus SMS through httpSMS (Phase 10/19).
   Data refreshes by controlled polling, not WebSockets.
 
 ---
@@ -690,7 +690,7 @@ with a detail view showing the full report and photo gallery.
 
 ---
 
-## 17. Phase 10 — SMS Notification System (textbee.dev)
+## 17. Phase 10 — SMS Notification System (httpSMS)
 
 If you already have the database from a previous phase, run
 `database/migration_phase10_sms_notifications.sql` in phpMyAdmin's SQL tab. It
@@ -702,30 +702,9 @@ default** — every send attempt is still logged (with status `Not Configured`),
 so you can build and test the entire flow (recipient selection, message
 templates, logs) before connecting a real phone.
 
-### Setting up textbee.dev
+### Setting up httpSMS
 
-textbee.dev turns an Android phone you own into an SMS gateway — no telecom
-contract, no per-message API fees beyond their plan.
-
-1. Install the textbee.dev app on an Android phone (see [textbee.dev](https://textbee.dev)) and follow their setup to register it as a gateway device.
-2. In the textbee.dev dashboard, create an API key and note your **Device ID** (shown next to your registered device).
-3. Open `backend/config/sms_api_config.php` and update it:
-   ```php
-   return [
-       'SMS_ENABLED' => true,                 // was false
-       'API_KEY' => 'paste-your-key-here',
-       'DEVICE_ID' => 'paste-your-device-id-here',
-       'API_BASE_URL' => 'https://api.textbee.dev/api/v1/gateway',
-   ];
-   ```
-4. Make sure PHP's `curl` extension is enabled (same requirement as the Phase 4 weather sync — usually already on by default in XAMPP).
-5. Log in as admin, go to **Send SMS**, pick a recipient, and send a test message. Check **SMS Logs** — a successful send shows status **Sent**; textbee.dev API errors show as **Failed** with the error message attached.
-
-If you ever change providers, the only file that needs to change is
-`backend/sms/sms_helper.php` — specifically the section that builds and sends the
-textbee.dev request. Every endpoint that sends SMS (`send.php`, and the two
-integration buttons described below) goes through this one shared function, so
-nothing else needs to know which provider is behind it.
+Follow [httpSMS setup](docs/httpsms-sms.md). Configure HTTPSMS_SMS_ENABLED, HTTPSMS_API_KEY and HTTPSMS_FROM in the private local settings. Sending, retries and queued notifications use the shared httpSMS transport. Each recipient has a separate request and log entry; gateway acceptance does not confirm delivery.
 
 ### SMS Notification Module (`/admin/send-sms`)
 
@@ -944,7 +923,7 @@ about a real audit that found and fixed a few genuine gaps:
 **Fixed as part of this phase's audit:**
 - **Session cookies now explicitly set `httponly`** (JavaScript can no longer read the session cookie — mitigates XSS-based session theft) **and conditionally `secure`** (auto-enforces HTTPS-only cookies if the app is ever deployed behind HTTPS, without breaking local HTTP development).
 - **Session ID regeneration on every successful login** (`session_regenerate_id(true)`) — mitigates session fixation attacks.
-- **`backend/sms/debug_config.php`** (a temporary SMS diagnostic that returned the TextBee device ID and part of the API key) has been **removed** before production deployment. Normal SMS sending does not depend on it.
+- **`backend/sms/debug_config.php`** (a temporary SMS diagnostic that returned the httpSMS device ID and part of the API key) has been **removed** before production deployment. Normal SMS sending does not depend on it.
 - **`backend/setup_admin.php`** used to silently reset the admin password every time it was run — meaning if this file were ever forgotten on a live server, anyone who found the URL could take over the admin account at any time. It now refuses to touch an existing admin account's password at all; you'd need to reset it directly in the database if genuinely locked out.
 - **Failed login attempts are now recorded** (previously, only successful logins were logged anywhere) — visible in the new Login History page.
 - **Logout events are now recorded** (previously not logged at all) — both the logout timestamp on the matching `login_history` row, and an audit log entry.
@@ -1043,7 +1022,7 @@ Extends the existing system (nothing removed, same stack). Full details: `REDESI
 | Evacuation Centers (capacity, occupancy, open/close, map) | Admin: **Disaster Management → Evacuation Centers** · Personnel: **Evacuation Centers** (resident page removed in Phase 21) |
 | Relief Feedback (existing records; resident submission retired in Phase 21) | Admin: **Reports and Analytics → Relief Feedback** |
 | In-app notifications | Resident/Personnel: **Notifications** (unread badge in the sidebar) |
-| Automatic SMS (TextBee) | Sent after request decisions, allocation approval, Ready for Distribution (Phase 21), scheduling, schedule changes and deliveries; see **SMS Logs**. Report verification no longer sends SMS (Phase 21). |
+| Automatic SMS (httpSMS) | Sent after request decisions, allocation approval, Ready for Distribution (Phase 21), scheduling, schedule changes and deliveries; see **SMS Logs**. Report verification no longer sends SMS (Phase 21). |
 | Map layers | **Barangay Map** → Layers: affected households, hazard puroks, evacuation centers, distribution sites |
 | Rule-Based Summary | Every analytics page and PDF export |
 | Purok Cleanup | Admin: **Settings → Purok Cleanup** |
@@ -1051,11 +1030,11 @@ Extends the existing system (nothing removed, same stack). Full details: `REDESI
 **Database:** new installs import `barangay_disaster_db_FINAL.sql`; existing databases run
 `database/migration_phase19_redesign.sql` (additive, safe to re-run).
 
-**TextBee SMS** is off until configured. Put these in `backend/config/app_config.local.php`:
+**httpSMS SMS** is off until configured. See [httpSMS setup and verification](docs/httpsms-sms.md) for Android phone registration, SIM requirements, and troubleshooting. Put these in `backend/config/app_config.local.php`:
 ```php
-'TEXTBEE_SMS_ENABLED' => true,
-'TEXTBEE_API_KEY'     => 'your-key',
-'TEXTBEE_DEVICE_ID'   => 'your-device-id',
+'HTTPSMS_SMS_ENABLED' => true,
+'HTTPSMS_API_KEY'     => 'your-key',
+'HTTPSMS_FROM'   => '+639XXXXXXXXX',
 ```
 Until then, every automatic or manual SMS is logged as "Not Configured" and the action still succeeds.
 
@@ -1083,8 +1062,8 @@ Same stack; nothing rebuilt; the DSS criteria and scores are unchanged. Full det
 (additive, safe to re-run); new installs import `barangay_disaster_db_FINAL.sql`.
 
 **Tests:** `tests/phase21_resident_scope_test.py` — 56/56 passed
-(`docs/test-results/phase21_resident_scope_test.txt`). Real TextBee delivery and the live
-Hostinger site were not tested. "Sent" in SMS Logs means TextBee accepted the message.
+(`docs/test-results/phase21_resident_scope_test.txt`). Real httpSMS delivery and the live
+Hostinger site were not tested. "Sent" in SMS Logs means httpSMS accepted the message.
 
 ## 24d. Phase 24 — Purok Boundaries (candidate)
 
@@ -1103,7 +1082,7 @@ Full details are in `PHASE23_CORE_MODULES_REPORT.md`, `database/MIGRATION_PHASE2
 | 3. Hazard Monitoring | **Hazard Monitoring** (incidents with type, severity, purok and status filters; critical incidents highlighted; affected households, needs and DSS priority), **Hazard Alerts**, **Evacuation Centers** | Hazard Monitoring |
 | 4. Geographic Coordinates | **Barangay Map** (boundary, households, incidents by severity and status, recorded affected areas vs flood-prone zones, missing-coordinate warning, Edit/Set location), **Flood & Affected Areas** | Barangay Map (incl. setting household locations) |
 | 5. Relief Allocation | **Relief Allocations**, **Relief Requests**, **Inventory** (in stock / reserved / available, low-stock filter, stock history) | Relief Allocations (Ready for Distribution, Distributed, history filter) |
-| 6. SMS Notification | **SMS Logs** (automatic Ready-for-Distribution SMS via TextBee, status, retry; manual notice linked from here) | — |
+| 6. SMS Notification | **SMS Logs** (automatic Ready-for-Distribution SMS via httpSMS, status, retry; manual notice linked from here) | — |
 | Administration | Households, Residents, Relief Personnel, Administrators, Audit Log (→ Login History), System Settings (→ Disaster / Inventory Settings, Purok Cleanup), My Profile | My Profile, Notifications |
 
 Residents keep only five items: Dashboard, Relief Allocation Status, Notifications, My Household and My Profile.
@@ -1137,7 +1116,7 @@ Residents are **not** required to submit reports. Barangay officials, relief per
 
 **SMS**
 - By default, SMS goes out only when relief is marked **Ready for Distribution**. Approval and distribution notify in-app. `SMS_ON_APPROVAL_AND_DISTRIBUTION` re-enables texting at those steps only if the barangay approves.
-- Messages are logged as `Queued` before sending, then **Accepted by Gateway** (TextBee accepted them).
+- Messages are logged as `Queued` before sending, then **Accepted by Gateway** (httpSMS accepted them).
 - `Delivered` is never set without a provider delivery receipt, which the current integration does not receive. Delivery to the phone is therefore not confirmed.
 - The household's own contact number is preferred.
 
@@ -1157,7 +1136,7 @@ Full details: `PHASE25_IMPLEMENTATION_REPORT.md`. This is a capstone prototype t
 ## 25. Deploying to Hostinger (prepared, not yet performed)
 
 1. **Database:** hPanel → Databases → create the database and user; phpMyAdmin → Import `database/barangay_disaster_db_FINAL.sql`.
-2. **Backend:** upload the `backend/` folder to `public_html/backend/`. Create `backend/config/app_config.local.php` from the example, with the Hostinger DB name/user/password, your HTTPS domain in `CORS_ALLOWED_ORIGINS`, and the TextBee keys.
+2. **Backend:** upload the `backend/` folder to `public_html/backend/`. Create `backend/config/app_config.local.php` from the example, with the Hostinger DB name/user/password, your HTTPS domain in `CORS_ALLOWED_ORIGINS`, and the httpSMS keys.
 3. **First admin:** run `php backend/setup_admin.php` over SSH (hPanel → Advanced → SSH). The setup scripts refuse web requests.
 4. **Frontend:** on your computer, create `frontend/.env.production.local` with `VITE_API_BASE_URL=/backend/`, then run `npm run build`. Upload the **contents** of `frontend/dist/` (including `.htaccess`) to `public_html/`.
 5. **Security:** enable HTTPS (SSL) in hPanel; the session cookie is then marked Secure automatically. Do **not** upload `setup_demo_data.php` or run it against the production database.
@@ -1165,3 +1144,5 @@ Full details: `PHASE25_IMPLEMENTATION_REPORT.md`. This is a capstone prototype t
 
 
 Current provisional relief scoring and household visits require migrations 29–31. See [setup, verification and unresolved damage policy](docs/PROVISIONAL_RELIEF_SCORING.md). Existing rosters and flood locations require explicit administrator verification.
+
+

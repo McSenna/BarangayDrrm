@@ -1,14 +1,14 @@
 <?php
 /**
  * The one household scoring service (spec: docs/superpowers/specs/2026-10-17-relief-allocation-workflow-design.md).
- * Automatic part (max 80): flood zone from the recorded Purok 40/20, verified household size 5–20, distinct
- * verified vulnerable people 0–20. Field-officer part (max 20): household damage from the submitted visit.
+ * Automatic part (max 80): flood zone from the recorded Purok 40/20, recorded household size 5–20, distinct
+ * recorded vulnerable people 0–20. Field-officer part (max 20): household damage from the submitted visit.
  * The final score (max 100) and its priority exist only when all four parts are known.
  */
 require_once __DIR__ . '/purok_boundaries.php';
 require_once __DIR__ . '/flood_zones.php';
 
-const DSS_MODEL_VERSION = 'final-v1 F40 recorded-Purok H20 V20 D20; max100';
+const DSS_MODEL_VERSION = 'final-v2 F40 recorded-Purok H20 V20 recorded-counts D20; max100';
 const DSS_NOT_ASSESSED = 'For Verification';
 const DSS_PENDING_ASSESSMENT = 'Pending Assessment';
 const DSS_DAMAGE_POINTS = ['Destroyed'=>20,'Severely Damaged'=>15,'Partially Damaged'=>10,'Minor Damage'=>5,'No Damage'=>0];
@@ -69,8 +69,8 @@ function dss_compute_priorities_cached(PDO $conn, bool $refresh = false): array 
 }
 
 function dss_compute_priorities(PDO $conn): array {
-    // Read roster attestations, people, assignments and locations from one snapshot.
-    // Otherwise an edit could combine an old verification with newly changed people.
+    // Read household counts, assignments and locations from one snapshot.
+    // Keep all scoring inputs consistent during concurrent edits.
     $ownsTransaction=!$conn->inTransaction();
     if($ownsTransaction){$conn->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');$conn->beginTransaction();}
     try {
@@ -81,8 +81,6 @@ function dss_compute_priorities(PDO $conn): array {
 }
 
 function dss_read_priorities(PDO $conn): array {
-    $profileFile = __DIR__ . '/household_profile.php';
-    if (is_file($profileFile)) require_once $profileFile;
     $boundaries = purok_boundaries_load();
     $calculated = date('Y-m-d H:i:s');
     $reportStmt = $conn->prepare("SELECT report_id,severity,status,report_date,disaster_type FROM disaster_reports WHERE household_id=? AND status <> 'Rejected' ORDER BY (status='Verified') DESC, FIELD(severity,'Critical','High','Medium','Low'),report_date DESC,report_id DESC LIMIT 1");
@@ -106,17 +104,24 @@ function dss_read_priorities(PDO $conn): array {
     $rows=[];
     foreach ($conn->query('SELECT * FROM households')->fetchAll(PDO::FETCH_ASSOC) as $h) {
         $hid=(int)$h['household_id'];
-        $profile=function_exists('household_verified_profile') ? household_verified_profile($conn,$h) : ['size'=>null,'vulnerable'=>null,'complete'=>false,'reasons'=>['Verified roster requires database migration 30.']];
         $flood=dss_flood_profile($h,$boundaries);
-        $reasons=$profile['reasons'];
+        $reasons=[];
         if (!$flood['flood_verified']) $reasons[]='Purok is missing or not recognised; record the household Purok to classify its flood zone.';
         $round=$current[$hid] ?? null;
         $visitStatus=$round['status'] ?? null;
         $submitted=$visitStatus==='assessed' && !empty($round['locked_at']);
         $damage=$submitted ? ($round['damage_classification'] ?? null) : null;
         if ($submitted && $damage===null) $reasons[]='The submitted visit has no damage classification; an administrator must re-open it.';
-        $members=$profile['complete'] ? $profile['size'] : null; // an incomplete roster never produces trusted counts
-        $vulnerable=$profile['complete'] ? $profile['vulnerable'] : null;
+        $members = filter_var($h['number_of_members'] ?? null, FILTER_VALIDATE_INT);
+        $vulnerable = filter_var($h['vulnerable_members'] ?? null, FILTER_VALIDATE_INT);
+        if ($members === false || $members < 1) {
+            $members = null;
+            $reasons[] = 'Record a household size of at least one person.';
+        }
+        if ($vulnerable === false || $vulnerable < 0 || ($members !== null && $vulnerable > $members)) {
+            $vulnerable = null;
+            $reasons[] = 'Record a vulnerable-member count between zero and the household size.';
+        }
         try { $score=dss_household_score($flood['flood_verified'] ? $flood['flood_status'] : null,$members,$vulnerable,$damage); }
         catch (InvalidArgumentException $e) { $score=dss_household_score($flood['flood_verified'] ? $flood['flood_status'] : null,null,null,$damage); $reasons[]=$e->getMessage(); }
         $reportStmt->execute([$hid]);$report=$reportStmt->fetch(PDO::FETCH_ASSOC) ?: null;
@@ -124,8 +129,8 @@ function dss_read_priorities(PDO $conn): array {
         $assessmentStatus=$damage===null ? 'Not Yet Assessed' : ($damage==='No Damage' ? 'No Damage — Assessed' : DSS_DAMAGE_LABELS[$damage].' — Assessed');
         $criteria=[
             ['key'=>'flood_zone','label'=>'Flood zone (recorded Purok)','max_points'=>40,'basis'=>$flood['flood_classification_label']],
-            ['key'=>'household_size','label'=>'Verified household size','max_points'=>20,'basis'=>$members===null?'Roster not verified':$members.' distinct people, including the head'],
-            ['key'=>'vulnerable_members','label'=>'Verified vulnerable members','max_points'=>20,'basis'=>$vulnerable===null?'Vulnerability information not verified':$vulnerable.' distinct vulnerable people'],
+            ['key'=>'household_size','label'=>'Household size (recorded)','max_points'=>20,'basis'=>$members===null?'Missing or invalid household size':$members.' recorded people, including the head'],
+            ['key'=>'vulnerable_members','label'=>'Vulnerable members (recorded)','max_points'=>20,'basis'=>$vulnerable===null?'Missing or invalid vulnerable-member count':$vulnerable.' recorded vulnerable people'],
             ['key'=>'damage','label'=>'Household damage (field visit)','max_points'=>20,'basis'=>$damage===null?'Not Yet Assessed':DSS_DAMAGE_LABELS[$damage]],
         ];
         foreach ($criteria as &$criterion) $criterion['contribution']=$score['score_breakdown'][$criterion['key']];unset($criterion);
@@ -144,9 +149,9 @@ function dss_read_priorities(PDO $conn): array {
             'field_visit_date'=>$submitted?($round['field_visit_date'] ?? null):null,'has_damage_assessment'=>$damage!==null,
             'damage'=>$damage!==null?['classification'=>$damage,'label'=>DSS_DAMAGE_LABELS[$damage],'findings'=>$round['findings'] ?? null]:null,
             'criteria'=>$criteria,'ratings'=>$score['score_breakdown'],'needs_review'=>(bool)$reasons,'review_reasons'=>array_values(array_unique($reasons)),
-            'explanation'=>$score['score_complete'] ? 'Final score from the recorded Purok flood zone, verified household people and the field officer\'s damage classification.'
+            'explanation'=>$score['score_complete'] ? 'Final score from the recorded Purok flood zone, recorded household counts and the field officer\'s damage classification.'
                 : ($score['automatic_complete'] ? 'Automatic subtotal only. The final score and priority follow the field officer\'s submitted visit.'
-                : 'Incomplete score. Verify the flagged source data; this household is not ranked as low priority.'),
+                : 'Incomplete score. Correct the flagged source data; this household is not ranked as low priority.'),
             'calculated_at'=>$calculated,'unmet_needs'=>null,
         ];
     }
@@ -175,3 +180,6 @@ function dss_scoped_priorities(PDO $conn): array {
         $row['rank']=$rank;$previous=$row['final_score'];
     }unset($row);return $rows;
 }
+
+
+

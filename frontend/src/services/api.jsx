@@ -125,7 +125,7 @@ export const getInventoryLogs = (params = {}) => api.get("inventory/get_logs.php
 export const getLegacyAllocations = () => api.get("relief/get_allocations.php");
 
 // ---------------------------------------------------------------
-// SMS Notifications (Phase 10) — Semaphore, disabled until configured
+// SMS Notifications (Phase 10) — httpSMS, disabled until configured
 // ---------------------------------------------------------------
 export const sendSms = (data) => api.post("sms/send.php", data);
 export const getSmsLogs = (params = {}) => api.get("sms/get_logs.php", { params });
@@ -293,3 +293,4 @@ export const setStandardPackage = (package_id) => api.post("relief/packages/set_
 export const getReliefPackages = () => api.get("relief/packages/get_packages.php");
 export const createReliefPackage = (data) => api.post("relief/packages/add_package.php", data);
 export const getMyAllocations = () => api.get("allocations/mine.php");
+

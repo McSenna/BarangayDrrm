@@ -24,7 +24,7 @@ if ($sms_id <= 0) {
 $state = sms_config_state();
 if (!$state['ready']) {
     http_response_code(409);
-    echo json_encode(["success" => false, "message" => SMS_DISABLED_MESSAGE . " Enable Semaphore first; nothing was sent."]);
+    echo json_encode(["success" => false, "message" => SMS_DISABLED_MESSAGE . " Enable httpSMS first; nothing was sent."]);
     exit();
 }
 
@@ -55,7 +55,7 @@ try {
         exit();
     }
 
-    $result = semaphore_send($state, [$row['recipient_number']], $row['message'], 15);
+    $result = httpsms_send($state, [$row['recipient_number']], $row['message'], 15);
     $status = $result['ok'] ? sms_accepted_status($conn) : 'Failed';
     $p25 = sms_logs_phase25($conn);
     $update = $conn->prepare($phase20
@@ -84,3 +84,4 @@ echo json_encode([
         ? "SMS accepted by the gateway (delivery to the phone is not confirmed). The log entry was updated."
         : sms_failure_message($result['error']),
 ]);
+

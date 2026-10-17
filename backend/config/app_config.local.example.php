@@ -15,12 +15,13 @@ return [
     'DB_NAME' => 'u000000000_binitayan',
     'DB_USER' => 'u000000000_binitayan',
     'DB_PASS' => 'change-me',
-    // Semaphore SMS gateway; blank sender uses the account's registered default.
-    'SEMAPHORE_SMS_ENABLED' => false,
-    'SEMAPHORE_API_KEY' => '',
-    'SEMAPHORE_SENDER_NAME' => '',
+    // httpSMS gateway; FROM is the Android phone number in +63 format.
+    'HTTPSMS_SMS_ENABLED' => false,
+    'HTTPSMS_API_KEY' => '',
+    'HTTPSMS_FROM' => '',
     'CORS_ALLOWED_ORIGINS' => [
         'https://your-domain.example',
         'https://www.your-domain.example',
     ],
 ];
+

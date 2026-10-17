@@ -286,7 +286,7 @@ $sms = [
     'by_category' => $pairs($q("SELECT category k, COUNT(*) c FROM sms_logs WHERE sent_at $ts GROUP BY category ORDER BY c DESC", $lp)),
     'pending' => null,
     'pending_note' => NA . ' (SMS are sent immediately; the log has no queue / pending status).',
-    'note' => $sms_total ? '"Sent" means Semaphore accepted the message; it is not a delivery confirmation. "Not Configured" means SMS was disabled, so nothing was sent.' : NA,
+    'note' => $sms_total ? '"Sent" means the SMS gateway accepted the message; it is not a delivery confirmation. "Not Configured" means SMS was disabled, so nothing was sent.' : NA,
 ];
 
 // ------------------------------------------------------------------ executive summary (fixed sentence rules)

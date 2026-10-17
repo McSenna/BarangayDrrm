@@ -228,7 +228,7 @@ export default function EvacuationCenters() {
             </label>
             <label style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, opacity: notify.notify_residents ? 1 : 0.5 }}>
               <input type="checkbox" style={{ width: "auto" }} disabled={!notify.notify_residents} checked={notify.send_sms} onChange={(e) => setNotify({ ...notify, send_sms: e.target.checked })} />
-              Also send an SMS to residents with a mobile number (Semaphore)
+              Also send an SMS to residents with a mobile number (httpSMS)
             </label>
             <div className="modal-actions">
               <button type="button" className="btn btn-ghost" onClick={() => setStatusTarget(null)}>Cancel</button>
@@ -256,3 +256,4 @@ export default function EvacuationCenters() {
     </>
   );
 }
+

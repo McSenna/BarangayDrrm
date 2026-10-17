@@ -26,19 +26,19 @@ export default function PriorityList() {
   const incomplete = data.filter(r => !r.score_complete).length;
   const points = value => value == null ? "For Verification" : value;
   return <>
-    <div className="page-header"><div><h1>Household Priority Assessment</h1><p>Scores use the recorded Purok flood zone, verified household people and the Field Officer's damage classification. Before the visit only the automatic subtotal (out of 80) exists; the final score is out of 100.</p></div></div>
+    <div className="page-header"><div><h1>Household Priority Assessment</h1><p>Scores use the recorded Purok flood zone, recorded household counts and the Field Officer's damage classification. Before the visit only the automatic subtotal (out of 80) exists; the final score is out of 100.</p></div></div>
     {error && <div className="alert alert-error" role="alert">{error}</div>}
     <details className="card" style={{ marginBottom: 16 }}><summary>Criteria and exact priority ranges</summary>
       <p>Inside designated flood zone: 40; outside: 20. Unknown or unverified locations have no points yet.</p>
       <p>Verified household size, including the head: 7+ people: 20; 5–6: 15; 3–4: 10; 1–2: 5.</p>
-      <p>Distinct verified vulnerable people: 3+: 20; 2: 15; 1: 10; 0: 0. A person in multiple categories counts once.</p>
+      <p>Recorded vulnerable people: 3+: 20; 2: 15; 1: 10; 0: 0. A person in multiple categories counts once.</p>
       <p>Household damage from the submitted field visit: Destroyed / uninhabitable 20; Severely damaged 15; Partially damaged 10; Minor damage 5; No damage 0. Not yet assessed is never 0.</p>
       <p>0–40: Low; 41–60: Moderate; 61–80: High; 81–100: Critical. Final scores rank from highest to lowest; ties share a rank. Households without a submitted visit show Pending Assessment; missing data shows For Verification — neither is ranked as Low.</p>
     </details>
-    {incomplete > 0 && <div className="alert alert-warning">{incomplete} household(s) need source-data verification. They have incomplete scores and are not classified as Low Priority.</div>}
+    {incomplete > 0 && <div className="alert alert-warning">{incomplete} household(s) need source-data corrections. They have incomplete scores and are not classified as Low Priority.</div>}
     <div className="card" style={{ display: "flex", gap: 12, alignItems: "end", flexWrap: "wrap", marginBottom: 16 }}>
       <div className="form-group" style={{ marginBottom: 0 }}><label htmlFor="pl-filter">Show</label><select id="pl-filter" value={filter} onChange={e => setFilter(e.target.value)}>
-        <option value="all">All households ({data.length})</option><option value="complete">Complete provisional scores ({data.length - incomplete})</option><option value="incomplete">Needs verification ({incomplete})</option><option value="review">All review flags</option>
+        <option value="all">All households ({data.length})</option><option value="complete">Complete final scores ({data.length - incomplete})</option><option value="incomplete">Missing or invalid data ({incomplete})</option><option value="review">All review flags</option>
       </select></div>
       <button className="btn btn-ghost" onClick={load}>Refresh scores</button>
       <a className="btn btn-secondary" href={BASE_URL + "dashboard/priority_list.php?export=csv"}>Export current priorities CSV</a>
@@ -63,3 +63,4 @@ export default function PriorityList() {
     </Modal>}
   </>;
 }
+

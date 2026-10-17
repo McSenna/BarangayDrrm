@@ -18,7 +18,7 @@
  *   - optional $options['event_type'|'allocation_id'|'request_id'] and a
  *     per-recipient 'household_id' are stored in the new sms_logs columns,
  *     together with a short provider response (never the API key)
- *   - the Semaphore call is one function (semaphore_send) shared with sms/retry.php
+ *   - the httpSMS call is one function (httpsms_send) shared with sms/retry.php
  *   - if the Phase 20 migration has not been run yet, logging falls back to
  *     the Phase 19 columns, so SMS keeps working
  *   - clear wording when SMS is switched off: "SMS notifications are currently disabled."
@@ -66,10 +66,11 @@ function sms_config_state(): array
     $state = [
         'enabled' => !empty($config['SMS_ENABLED']),
         'api_key' => trim((string) ($config['API_KEY'] ?? '')),
-        'sender_name' => trim((string) ($config['SENDER_NAME'] ?? '')),
+        'from' => trim((string) ($config['FROM'] ?? '')),
         'base_url' => trim((string) ($config['API_BASE_URL'] ?? '')),
     ];
-    $state['ready'] = $state['enabled'] && $state['api_key'] !== '';
+    if (sms_is_valid_ph_mobile($state['from'])) $state['from'] = httpsms_number($state['from']);
+    $state['ready'] = $state['enabled'] && $state['api_key'] !== '' && (bool) preg_match('/^\+[1-9]\d{7,14}$/', $state['from']);
     return $state;
 }
 
@@ -80,8 +81,11 @@ function sms_short_response($text): ?string
     return mb_substr(preg_replace('/\s+/', ' ', (string) $text), 0, 300);
 }
 
-function semaphore_send(array $state, array $numbers, string $message, int $timeout): array
+function httpsms_send(array $state, array $numbers, string $message, int $timeout): array
 {
+    if (count($numbers) !== 1 || !preg_match('/^\+[1-9]\d{7,14}$/', $state['from'] ?? '')) {
+        return ['ok' => false, 'http_code' => 0, 'error' => 'httpSMS requires a valid sender and exactly one recipient.', 'response' => null];
+    }
     if (!function_exists('curl_init')) {
         return ['ok' => false, 'http_code' => 0, 'error' => "PHP's curl extension is not enabled.", 'response' => null];
     }
@@ -93,61 +97,54 @@ function semaphore_send(array $state, array $numbers, string $message, int $time
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, min(5, $timeout));
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/x-www-form-urlencoded',
+        'Content-Type: application/json',
+        'x-api-key: ' . $state['api_key'],
     ]);
     $parameters = [
-        'apikey' => $state['api_key'],
-        'number' => implode(',', array_map('semaphore_number', $numbers)),
-        'message' => $message,
+        'from' => $state['from'],
+        'to' => httpsms_number($numbers[0]),
+        'content' => $message,
     ];
-    if ($state['sender_name'] !== '') $parameters['sendername'] = $state['sender_name'];
-    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($parameters));
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($parameters, JSON_THROW_ON_ERROR));
 
     $response = curl_exec($ch);
     $http_code = intval(curl_getinfo($ch, CURLINFO_HTTP_CODE));
     $curl_error = curl_error($ch);
     curl_close($ch);
 
-    return semaphore_parse_response($http_code, $response, $curl_error, $state['api_key']);
+    return httpsms_parse_response($http_code, $response, $curl_error, $state['api_key']);
 }
 
-/** Semaphore accepts Philippine numbers in international digits-only format. */
-function semaphore_number(string $number): string
+/** httpSMS accepts Philippine numbers in E.164 format, including the plus sign. */
+function httpsms_number(string $number): string
 {
     $digits = preg_replace('/[^0-9]/', '', $number);
-    return str_starts_with($digits, '09') ? '63' . substr($digits, 1) : $digits;
+    return '+' . (str_starts_with($digits, '09') ? '63' . substr($digits, 1) : $digits);
 }
 
 /** Validate the provider payload as well as HTTP status, and redact secrets. */
-function semaphore_parse_response(int $http_code, $response, string $curl_error, string $api_key): array
+function httpsms_parse_response(int $http_code, $response, string $curl_error, string $api_key): array
 {
     $decoded = json_decode((string) $response, true);
-    $ok = $response !== false && $http_code >= 200 && $http_code < 300
-        && is_array($decoded) && isset($decoded[0]);
-    if ($ok) {
-        foreach ($decoded as $row) {
-            if (!is_array($row) || empty($row['message_id'])
-                || !in_array(strtolower((string) ($row['status'] ?? '')), ['queued', 'pending', 'sent'], true)) {
-                $ok = false;
-                break;
-            }
-        }
-    }
+    $data = is_array($decoded) && is_array($decoded['data'] ?? null) ? $decoded['data'] : [];
+    $ok = $response !== false && $curl_error === '' && $http_code >= 200 && $http_code < 300
+        && ($decoded['status'] ?? null) === 'success'
+        && is_string($data['id'] ?? null) && trim($data['id']) !== '';
     $safe = $api_key !== '' ? str_replace($api_key, '[REDACTED]', (string) $response) : (string) $response;
     $safe_error = $api_key !== '' ? str_replace($api_key, '[REDACTED]', $curl_error) : $curl_error;
+    // Preserve the batch ID in valid JSON even when the full response exceeds the log limit.
+    $batch_id = $ok ? $data['id'] : '';
+    if ($api_key !== '') $batch_id = str_replace($api_key, '[REDACTED]', $batch_id);
     return ['ok' => $ok, 'http_code' => $http_code,
-        'error' => $ok ? null : ($safe_error ?: "Semaphore API returned HTTP $http_code: " . substr($safe, 0, 300)),
-        'response' => sms_short_response($safe)];
+        'error' => $ok ? null : ($safe_error ?: "httpSMS API returned HTTP $http_code: " . substr($safe, 0, 300)),
+        'response' => $ok
+            ? json_encode(['status' => 'success', 'data' => ['id' => mb_substr($batch_id, 0, 100)]])
+            : sms_short_response($safe)];
 }
 
-/** Translate known setup failures without exposing raw gateway responses. */
+/** Give safe retry guidance without exposing raw gateway responses. */
 function sms_failure_message(?string $error): string
 {
-    if (stripos((string) $error, 'No active sender name found') !== false) {
-        return 'Semaphore could not send this SMS because your account has no approved sender name. '
-            . 'Register a sender name in your Semaphore dashboard and wait for approval, then retry from SMS Logs. '
-            . 'The failed attempt was recorded in SMS Logs.';
-    }
     return 'The SMS could not be sent. The attempt was recorded in SMS Logs with the status "Failed". '
         . 'Please check the SMS service connection and retry from SMS Logs.';
 }
@@ -164,7 +161,7 @@ function sms_logs_phase25(PDO $conn): bool
 }
 
 /**
- * Status for "the gateway accepted the request". Semaphore answering HTTP 2xx
+ * Status for "the gateway accepted the request". httpSMS answering HTTP 2xx
  * means the message was ACCEPTED for sending, not that the phone received it,
  * so it is never recorded as Delivered. Before Phase 25 the legacy word 'Sent'
  * is kept (the ENUM has no other value).
@@ -177,7 +174,7 @@ function sms_accepted_status(PDO $conn): string
 /** Statuses that mean "handed to the gateway" — never retried, counted as sent in reports. */
 const SMS_ACCEPTED_STATUSES = ['Sent', 'Accepted by Gateway', 'Delivered'];
 
-/** The provider's message/batch ID from a Semaphore JSON response, if it gives one. */
+/** The provider's message/batch ID from a httpSMS JSON response, if it gives one. */
 function sms_provider_message_id(?string $response): ?string
 {
     if (!$response) return null;
@@ -192,7 +189,7 @@ function sms_provider_message_id(?string $response): ?string
 }
 
 /**
- * Phase 25 — send every Queued row in $sms_ids (one Semaphore call per row) and
+ * Phase 25 — send every Queued row in $sms_ids (one httpSMS call per row) and
  * record the outcome on the same row. Used right after queueing, and safe to
  * call again: a row that is no longer Queued is skipped (locked + re-checked).
  * @return array ['accepted' => int, 'failed' => int, 'skipped' => int, 'failure_message' => ?string]
@@ -217,7 +214,7 @@ function sms_process_queued(PDO $conn, array $sms_ids, int $timeout = 8): array
             $out['failed']++; continue;
         }
         if ($own_tx) $conn->commit(); // do not hold the row lock during the network call
-        $r = semaphore_send($state, [$row['recipient_number']], $row['message'], $timeout);
+        $r = httpsms_send($state, [$row['recipient_number']], $row['message'], $timeout);
         if (!$r['ok'] && $out['failure_message'] === null) {
             $out['failure_message'] = sms_failure_message($r['error']);
         }
@@ -325,7 +322,7 @@ function send_sms_batch(PDO $conn, array $recipients, string $message, string $c
     // --- Switched off / not configured: log every recipient as such ---
     if (!$state['ready']) {
         foreach ($recipients as $r) {
-            $log($r, 'Not Configured', SMS_DISABLED_MESSAGE . ' Set SEMAPHORE_SMS_ENABLED and SEMAPHORE_API_KEY in backend/config/app_config.local.php.');
+            $log($r, 'Not Configured', SMS_DISABLED_MESSAGE . ' Set HTTPSMS_SMS_ENABLED, HTTPSMS_API_KEY and HTTPSMS_FROM in backend/config/app_config.local.php.');
         }
         return [
             'success' => false,
@@ -364,25 +361,19 @@ function send_sms_batch(PDO $conn, array $recipients, string $message, string $c
         ];
     }
 
-    // --- Send via Semaphore (one call, all numbers in the recipients array) ---
-    $result = semaphore_send($state, array_map(fn($r) => $r['number'], $recipients), $message, $timeout);
-    $status = $result['ok'] ? 'Sent' : 'Failed';
-
+    // Older schemas still send and log each recipient separately.
+    $sent = 0;
     foreach ($recipients as $r) {
-        $log($r, $status, $result['error'], $result['response']);
+        $result = httpsms_send($state, [$r['number']], $message, $timeout);
+        $log($r, $result['ok'] ? 'Sent' : 'Failed', $result['error'], $result['response']);
+        if ($result['ok']) $sent++;
     }
-
-    if (!$result['ok'] && !function_exists('curl_init')) {
-        return ['success' => false, 'message' => "SMS sending is currently unavailable. The message was saved in SMS Logs with the status \"Failed\". Please contact the system administrator.", 'sent_count' => 0, 'failed_count' => count($recipients) + $invalid_count, 'status' => 'Failed'];
-    }
-
+    $ok = $sent === count($recipients);
     return [
-        'success' => $result['ok'],
-        'message' => $result['ok']
-            ? 'SMS sent to ' . count($recipients) . ' recipient(s).' . ($invalid_count ? " $invalid_count invalid number(s) were skipped." : '')
-            : sms_failure_message($result['error']),
-        'sent_count' => $result['ok'] ? count($recipients) : 0,
-        'failed_count' => ($result['ok'] ? 0 : count($recipients)) + $invalid_count,
-        'status' => $status,
+        'success' => $ok,
+        'message' => $ok ? 'SMS accepted by the gateway for ' . $sent . ' recipient(s) (delivery to the phone is not confirmed).' : sms_failure_message(null),
+        'sent_count' => $sent,
+        'failed_count' => count($recipients) - $sent + $invalid_count,
+        'status' => $ok ? 'Sent' : 'Failed',
     ];
 }

@@ -46,5 +46,6 @@ foreach ([null,'','Purok 9'] as $purok) { $f = dss_flood_profile(['purok'=>$puro
 $m=dss_method_summary();
 auto_check($m['maximum_automatic_subtotal']===80 && $m['maximum_score']===100,'max 80 / 100');
 auto_check($m['damage_points']===DSS_DAMAGE_POINTS && $m['provisional']===false,'damage points defined; not provisional');
-auto_check(DSS_MODEL_VERSION==='final-v1 F40 recorded-Purok H20 V20 D20; max100','rule version');
+auto_check(DSS_MODEL_VERSION==='final-v2 F40 recorded-Purok H20 V20 recorded-counts D20; max100','rule version');
 echo "PASS: $checks automatic scoring checks\n";
+

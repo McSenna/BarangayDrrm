@@ -14,6 +14,7 @@ echo json_encode([
     "success" => true,
     "enabled" => $state['ready'],
     "message" => $state['ready']
-        ? "SMS notifications are enabled (Semaphore)."
+        ? "SMS notifications are enabled (httpSMS)."
         : SMS_DISABLED_MESSAGE . " Automatic and manual SMS are recorded in SMS Logs as \"Not Configured\" and nothing is sent.",
 ]);
+

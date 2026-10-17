@@ -28,11 +28,12 @@ function household_profile_from_members(array $household, array $people): array 
         if ($hasVulnerability) $vulnerable++;
     }
     if (count($heads) !== 1 || ($heads[0] ?? '') !== household_member_name_key((string)($household['head_of_family'] ?? ''))) $reasons[] = 'Include the named household head exactly once with relationship Head.';
+    $canVerifyRoster = !$reasons && $vulnerabilityComplete;
     $rosterVerified = !empty($household['roster_verified_at']) && !empty($household['roster_verified_by']);
     if (!$rosterVerified) $reasons[] = 'An administrator must verify that the roster is complete.';
     $rosterValid = !$reasons;
     if (!$vulnerabilityComplete) $reasons[] = 'Verify vulnerability information for every person; unknown is not zero.';
-    return ['size'=>$rosterValid ? count($people) : null,'vulnerable'=>$rosterValid && $vulnerabilityComplete ? $vulnerable : null,'complete'=>!$reasons,'reasons'=>array_values(array_unique($reasons)),'people'=>$people,'roster_verified'=>$rosterValid];
+    return ['size'=>$rosterValid ? count($people) : null,'vulnerable'=>$rosterValid && $vulnerabilityComplete ? $vulnerable : null,'complete'=>!$reasons,'reasons'=>array_values(array_unique($reasons)),'people'=>$people,'roster_verified'=>$rosterValid,'can_verify_roster'=>$canVerifyRoster];
 }
 
 function household_verified_profile(PDO $conn, array $household): array {
@@ -74,3 +75,4 @@ function household_assert_distinct_member(PDO $conn, int $householdId, array $me
         if (household_member_name_key($existing['full_name']) === household_member_name_key($member['full_name']) && ($existing['age'] === null || $member['age'] === null || (int)$existing['age'] === $member['age'])) throw new InvalidArgumentException('This person is already on the roster. Edit the existing member instead.');
     }
 }
+

@@ -28,3 +28,10 @@ C:/xampp/php/php.exe tests/httpsms_workflow_test.php
 After setup, use Send SMS to send a message to your own test recipient and confirm both the SMS Logs result and receipt on that phone.
 
 Provider documentation: https://docs.httpsms.com/
+
+## Assessment completion
+
+Once a submitted field visit produces a complete final score, the system queues an ASSESSMENT_COMPLETED SMS to the household contact (linked resident contact is the fallback). It is sent after the assessment transaction commits, even when no standard relief package is configured. The message says: Brgy. Binitayan: Your household assessment is complete. For inquiries, please contact the barangay office.
+
+One completion notice is recorded per household allocation round. Recalculating or reopening the same round does not send another. A new allocation round can produce a new notice. Drafts and incomplete scores do not trigger it. SMS Logs record queued, disabled, invalid-number and failed attempts; retries use the existing SMS Logs action. Distribution-ready notifications remain separate. No historical households are bulk-texted by installing this change.
+

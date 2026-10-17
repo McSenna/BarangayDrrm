@@ -148,9 +148,22 @@ function aw_promote_if_complete(PDO $db, int $householdId, ?int $actorId): array
         if (!$score || ($score['score_complete'] === false && ($submitted || !$score['automatic_complete']))) {
             foreach (($score['review_reasons'] ?? []) ?: ['The score is incomplete.'] as $why) $reasons[] = 'For Verification: ' . $why;
         }
+        // Queue once per allocation round as soon as the final assessment score exists.
+        // This is independent of the package needed for Ready for Distribution.
+        // sms_logs.allocation_id references legacy relief_allocations; the round is in event_key.
+        $assessmentQueued = [];
+        if ($submitted && !empty($score['score_complete'])) {
+            $assessmentNotice = dispatch_notification($db, [['household_id' => $householdId]],
+                "household_allocation:{$alloc['allocation_id']}:assessment_completed",
+                'Your household assessment is complete', 'For inquiries, please contact the barangay office.',
+                ['link' => '/resident/relief-status', 'sms' => true, 'sms_category' => 'Relief Allocation Update',
+                 'event_type' => 'ASSESSMENT_COMPLETED',
+                 'sent_by' => $actorId, 'sms_defer' => true]);
+            $assessmentQueued = $assessmentNotice['sms']['queued_ids'] ?? [];
+        }
         $standard = aw_standard_package($db);
         if ($standard['reason']) $reasons[] = $standard['reason'];
-        if ($reasons) return ['promoted' => false, 'reasons' => array_values(array_unique($reasons)), 'allocation' => $alloc, 'queued_sms_ids' => []];
+        if ($reasons) return ['promoted' => false, 'reasons' => array_values(array_unique($reasons)), 'allocation' => $alloc, 'queued_sms_ids' => $assessmentQueued];
 
         $insert = $db->prepare('INSERT INTO household_allocation_items (allocation_id, item_id, item_name, unit, planned_qty) VALUES (?,?,?,?,?)');
         foreach ($standard['items'] as $item) $insert->execute([$alloc['allocation_id'], $item['item_id'], $item['item_name'], $item['unit'], (int)$item['quantity']]);
@@ -163,8 +176,8 @@ function aw_promote_if_complete(PDO $db, int $householdId, ?int $actorId): array
         $summary = dispatch_notification($db, [['household_id' => $householdId]], "household_allocation:{$ready['allocation_id']}:ready",
             'Your relief allocation is ready for distribution', "Items: $list. For inquiries, contact the barangay office.",
             ['link' => '/resident/relief-status', 'sms' => true, 'sms_category' => 'Relief Allocation Update',
-             'event_type' => 'ALLOCATION_READY_FOR_DISTRIBUTION', 'allocation_id' => (int)$ready['allocation_id'], 'sent_by' => $actorId, 'sms_defer' => true]);
-        return ['promoted' => true, 'reasons' => [], 'allocation' => $ready, 'queued_sms_ids' => $summary['sms']['queued_ids'] ?? []];
+             'event_type' => 'ALLOCATION_READY_FOR_DISTRIBUTION', 'sent_by' => $actorId, 'sms_defer' => true]);
+        return ['promoted' => true, 'reasons' => [], 'allocation' => $ready, 'queued_sms_ids' => array_merge($assessmentQueued, $summary['sms']['queued_ids'] ?? [])];
     });
 }
 
@@ -175,7 +188,8 @@ function aw_promote_all_waiting(PDO $db, ?int $actorId): array {
     $promoted = 0; $queued = [];
     foreach ($waiting as $hid) {
         $r = aw_promote_if_complete($db, (int)$hid, $actorId);
-        if ($r['promoted']) { $promoted++; $queued = array_merge($queued, $r['queued_sms_ids']); }
+        if ($r['promoted']) $promoted++;
+        $queued = array_merge($queued, $r['queued_sms_ids']);
     }
     return ['promoted' => $promoted, 'queued_sms_ids' => $queued];
 }

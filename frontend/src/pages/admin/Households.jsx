@@ -204,6 +204,10 @@ export default function Households() {
   };
 
   const handleVerifyRoster = async () => {
+    if (!memberProfile?.can_verify_roster) {
+      setMemberError(memberProfile?.reasons?.join(" ") || "Complete the member details before verifying the roster.");
+      return;
+    }
     setMemberBusy(true); setMemberError("");
     try {
       const res = await verifyHouseholdRoster(detailRow.household_id);
@@ -521,9 +525,11 @@ export default function Households() {
           </form>
           <hr style={{ margin: "20px 0" }} />
           <p>By verifying, you confirm that every distinct person in this household is listed and the household head appears exactly once. Changes to members require verification again.</p>
-          <button type="button" className="btn btn-primary" disabled={memberBusy || membersLoading || !members.length || memberProfile?.complete} onClick={handleVerifyRoster}>{memberProfile?.complete ? "Roster verified" : "Verify complete household roster"}</button>
+          {!memberProfile?.complete && !memberProfile?.can_verify_roster && <p className="users-help">Complete the corrections listed above before verifying. Priority scores already use the recorded household counts and do not require this step.</p>}
+          <button type="button" className="btn btn-primary" disabled={memberBusy || membersLoading || !members.length || !memberProfile?.can_verify_roster || memberProfile?.complete} onClick={handleVerifyRoster}>{memberProfile?.complete ? "Roster verified" : "Verify complete household roster"}</button>
         </Modal>
       )}
     </>
   );
 }
+

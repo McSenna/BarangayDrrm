@@ -21,4 +21,12 @@ foreach ([-1,'bad',1.5,true,[],151] as $age) {
     try { household_member_payload(['full_name'=>'Person','relationship'=>'Head','age'=>$age]); throw new RuntimeException('Invalid age accepted'); }
     catch (InvalidArgumentException $e) {}
 }
+$unverifiedHousehold=array_merge($household,['roster_verified_at'=>null,'roster_verified_by'=>null]);
+$p=household_profile_from_members($unverifiedHousehold,[$head,$adult]);
+check_profile(($p['can_verify_roster']??false)===true,'Complete people can be submitted for roster attestation');
+$p=household_profile_from_members($unverifiedHousehold,[array_merge($head,['is_pwd'=>null])]);
+check_profile(($p['can_verify_roster']??true)===false,'Unknown vulnerabilities block the verify action');
+$p=household_profile_from_members($unverifiedHousehold,[$adult]);
+check_profile(($p['can_verify_roster']??true)===false,'Missing named head blocks the verify action');
 echo "Verified household profile tests passed\n";
+
